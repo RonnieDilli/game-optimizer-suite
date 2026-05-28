@@ -1,6 +1,8 @@
 # Game Optimization Suite
 
-Coletanea de scripts e especificacoes para otimizacao de ambiente Windows, servicos de jogos e tuning de hardware.
+Coletanea de scripts e especificacoes (SDD) para otimizacao de ambiente Windows, servicos de jogos e tuning de hardware.
 
-## Estrutura Atual
-- **Steam Repair (`scripts/steam/steam_repair.bat`):** Limpeza dinamica de caches, reparo do SteamService e renovacao de tokens do Steam Guard. Blindado com verificacao de privilegios (Admin) e correcoes VAC seguras (nx OptIn).
+## Arquitetura Modular
+- **`scripts/hardware/`**: Rotinas base do sistema operacional, limpeza de shaders (NVIDIA/AMD) e gerenciamento de servicos.
+- **`scripts/steam/`**: Manutencao especifica da Steam, dependente dos scripts de hardware.
+- **`scripts/games/`**: Otimizacoes para Epic Games e Rocket League, dependentes dos scripts de hardware.
