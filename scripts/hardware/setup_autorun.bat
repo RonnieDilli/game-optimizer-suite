@@ -24,19 +24,18 @@ echo ===================================================
 echo.
 
 echo [Setup] Gerando launcher silencioso (VBScript)...
-:: Cria um pequeno script VBS dinamicamente para rodar o .bat de forma invisivel
 echo Set WshShell = CreateObject("WScript.Shell") > "%VbsPath%"
 echo WshShell.Run chr(34) ^& "%ScriptPath%" ^& chr(34), 0 >> "%VbsPath%"
 echo Set WshShell = Nothing >> "%VbsPath%"
 
 echo [Setup] Registrando tarefa no Windows Task Scheduler...
-:: Agora o schtasks chama o wscript.exe, que nao sofre com o bug das aspas
-schtasks /create /tn "%TaskName%" /tr "wscript.exe \"%VbsPath%\"" /sc onlogon /rl highest /f
+:: Alterado para rodar na Inicializacao (onstart) e como usuario SYSTEM (/ru SYSTEM)
+schtasks /create /tn "%TaskName%" /tr "wscript.exe \"%VbsPath%\"" /sc onstart /ru SYSTEM /rl highest /f
 
 if %errorLevel% equ 0 (
     echo.
     echo [SUCESSO] Tarefa "%TaskName%" agendada com sucesso!
-    echo O VBScript garantira que a limpeza ocorra 100%% invisivel no proximo logon.
+    echo O VBScript garantira que a limpeza ocorra 100%% invisivel na Inicializacao do Sistema (Boot).
 ) else (
     echo.
     echo [ERRO] Falha ao criar a tarefa. Verifique as permissoes do sistema.
