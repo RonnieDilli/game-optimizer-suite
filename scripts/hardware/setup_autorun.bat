@@ -2,11 +2,11 @@
 title Setup: Auto-Cleanup on Boot
 color 0E
 
-:: Verifica Administrador
+:: === VERIFICACAO DE PRIVILEGIOS ===
 net session >nul 2>&1
 if %errorLevel% neq 0 (
     echo ===================================================
-    echo [ERRO] PRIVILEGIOS DE ADMINISTRADOR AUSENTES
+    echo [ERRO CRITICO] PRIVILEGIOS DE ADMINISTRADOR AUSENTES
     echo ===================================================
     echo O Agendador de Tarefas do Windows exige elevacao.
     echo Feche e execute como Administrador.
@@ -16,33 +16,27 @@ if %errorLevel% neq 0 (
 
 set "TaskName=GameOpt_GPU_BootCleanup"
 set "ScriptPath=%~dp0gpu_os_cleanup.bat"
-
-:: Comando encapsulado em PowerShell para garantir que rode de forma totalmente invisivel
-set "TaskCommand=powershell.exe -WindowStyle Hidden -Command \"& '%ScriptPath%'\""
+set "VbsPath=%~dp0run_hidden.vbs"
 
 echo ===================================================
 echo    AGENDADOR DE OTIMIZACAO NO BOOT DO WINDOWS
 echo ===================================================
 echo.
-echo Este script criara uma rotina invisivel que roda
-echo a limpeza de Shaders (NVIDIA/AMD) sempre que voce
-echo fizer login no Windows, garantindo que os caches
-echo sejam apagados antes que os apps em segundo plano
-echo bloqueiem os arquivos.
-echo.
 
-schtasks /query /tn "%TaskName%" >nul 2>&1
-if %errorLevel% equ 0 (
-    echo [Aviso] A tarefa ja existe. Sobrescrevendo...
-)
+echo [Setup] Gerando launcher silencioso (VBScript)...
+:: Cria um pequeno script VBS dinamicamente para rodar o .bat de forma invisivel
+echo Set WshShell = CreateObject("WScript.Shell") > "%VbsPath%"
+echo WshShell.Run chr(34) ^& "%ScriptPath%" ^& chr(34), 0 >> "%VbsPath%"
+echo Set WshShell = Nothing >> "%VbsPath%"
 
 echo [Setup] Registrando tarefa no Windows Task Scheduler...
-schtasks /create /tn "%TaskName%" /tr "%TaskCommand%" /sc onlogon /rl highest /f >nul 2>&1
+:: Agora o schtasks chama o wscript.exe, que nao sofre com o bug das aspas
+schtasks /create /tn "%TaskName%" /tr "wscript.exe \"%VbsPath%\"" /sc onlogon /rl highest /f
 
 if %errorLevel% equ 0 (
     echo.
-    echo [SUCESSO] Tarefa "%TaskName%" agendada!
-    echo Ela rodara invisivelmente com privilegios maximos no proximo boot.
+    echo [SUCESSO] Tarefa "%TaskName%" agendada com sucesso!
+    echo O VBScript garantira que a limpeza ocorra 100%% invisivel no proximo logon.
 ) else (
     echo.
     echo [ERRO] Falha ao criar a tarefa. Verifique as permissoes do sistema.
