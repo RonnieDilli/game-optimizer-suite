@@ -6,3 +6,4 @@ venv/
 .env/
 __pycache__/
 local_config.ini
+scripts/hardware/run_hidden.vbs
