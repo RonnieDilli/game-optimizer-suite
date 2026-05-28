@@ -2,7 +2,6 @@
 title Setup: Auto-Cleanup on Boot
 color 0E
 
-:: === VERIFICACAO DE PRIVILEGIOS ===
 net session >nul 2>&1
 if %errorLevel% neq 0 (
     echo ===================================================
@@ -22,25 +21,22 @@ echo ===================================================
 echo    AGENDADOR DE OTIMIZACAO NO BOOT DO WINDOWS
 echo ===================================================
 echo.
-
 echo [Setup] Gerando launcher silencioso (VBScript)...
 echo Set WshShell = CreateObject("WScript.Shell") > "%VbsPath%"
-echo WshShell.Run chr(34) ^& "%ScriptPath%" ^& chr(34), 0 >> "%VbsPath%"
+:: A adicao do parametro "--auto" impede o pause quando roda no boot
+echo WshShell.Run chr(34) ^& "%ScriptPath%" ^& chr(34) ^& " --auto", 0 >> "%VbsPath%"
 echo Set WshShell = Nothing >> "%VbsPath%"
 
 echo [Setup] Registrando tarefa no Windows Task Scheduler...
-:: Alterado para rodar na Inicializacao (onstart) e como usuario SYSTEM (/ru SYSTEM)
 schtasks /create /tn "%TaskName%" /tr "wscript.exe \"%VbsPath%\"" /sc onstart /ru SYSTEM /rl highest /f
 
 if %errorLevel% equ 0 (
     echo.
     echo [SUCESSO] Tarefa "%TaskName%" agendada com sucesso!
-    echo O VBScript garantira que a limpeza ocorra 100%% invisivel na Inicializacao do Sistema (Boot).
 ) else (
     echo.
-    echo [ERRO] Falha ao criar a tarefa. Verifique as permissoes do sistema.
+    echo [ERRO] Falha ao criar a tarefa.
 )
-
 echo.
 pause
 exit
