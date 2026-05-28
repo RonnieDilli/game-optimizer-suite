@@ -1,0 +1,9 @@
+# Logs e arquivos temporarios
+*.log
+*.tmp
+*.bak
+.DS_Store
+venv/
+.env/
+__pycache__/
+local_config.ini
