@@ -1,9 +1,5 @@
-Feature: Epic Games e Rocket League Optimizer
-  Para resolver problemas de micro-stuttering e limpar o EOS Overlay
-  Eu quero limpar o webcache e delegar a limpeza grafica ao modulo de hardware
-
-  Scenario: Limpeza do Epic Online Services
-    Given que a Epic Games Launcher nao esta em execucao
-    When eu rodo a limpeza padrao
-    Then o cache do "EOSOverlay" deve ser deletado obrigatoriamente
-    And os Demos do Rocket League so devem ser apagados mediante confirmacao explicita (Y/N)
+Scenario: Auditoria e Integracao de Modulos
+    Given que a limpeza do cache de texturas do Rocket League foi concluida
+    When o modulo de hardware e invocado
+    Then a chamada deve repassar o parametro "--auto"
+    And as evidencias da exclusao de arquivos devem ser salvas em "logs/epic_rl_repair.log"

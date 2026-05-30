@@ -1,9 +1,5 @@
-Feature: Steam Repair Modular
-  Para limpar caches acumulados e reparar a Steam
-  Eu quero executar uma rotina que delegue a limpeza de GPU para o modulo de hardware
-
-  Scenario: Chamada de Modulo Externo
-    Given que a limpeza especifica da Steam foi concluida
-    When o script atinge a fase de limpeza de hardware
-    Then ele deve invocar "scripts\hardware\gpu_os_cleanup.bat"
-    And aguardar o retorno da execucao antes de exibir o resumo final
+Scenario: Modo Silencioso e Prevencao de Perda de Dados
+    Given que o script da Steam e executado com o argumento "--auto"
+    When chegar a fase de perguntas iniciais (Login e VAC)
+    Then os prompts devem ser ignorados assumindo "N" por padrao
+    And todas as acoes e contagens de arquivos devem ser registradas em "logs/steam_repair.log"
