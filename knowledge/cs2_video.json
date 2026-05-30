@@ -1,0 +1,37 @@
+{
+    "AutoConfig": {
+        "nome": "Auto-Configuração da Engine",
+        "ideal": "0",
+        "impacto": "Crítico. Previne resets ocultos da Source 2 no boot."
+    },
+    "setting.r_low_latency": {
+        "nome": "NVIDIA Reflex",
+        "ideal": "2",
+        "impacto": "Alto. Reduz fila de renderização (Input Lag) ativando o modo On+Boost."
+    },
+    "setting.cpu_level": {
+        "nome": "Alocação de Threads (CPU)",
+        "ideal": "3",
+        "impacto": "Médio (Stuttering). Força a engine a distribuir a carga física agressivamente."
+    },
+    "setting.gpu_level": {
+        "nome": "Prioridade de Renderização (GPU)",
+        "ideal": "3",
+        "impacto": "Médio. Garante uso total do pipeline, evitando dormência da placa."
+    },
+    "setting.gpu_mem_level": {
+        "nome": "Alocação de VRAM",
+        "ideal": "3",
+        "impacto": "Alto. Previne engasgos de textura ao alocar o maior pool de memória possível."
+    },
+    "setting.videocfg_shadow_quality": {
+        "nome": "Qualidade das Sombras (Tático)",
+        "ideal": "3",
+        "impacto": "Tático. Sombras no 'High' (3) renderizam a silhueta de jogadores a longas distâncias."
+    },
+    "setting.videocfg_fsr_detail": {
+        "nome": "FidelityFX Super Resolution",
+        "ideal": "0",
+        "impacto": "Crítico. Mantém em '0' (Disabled) para renderização nativa, evitando desfoque que atrapalha o tracking."
+    }
+}

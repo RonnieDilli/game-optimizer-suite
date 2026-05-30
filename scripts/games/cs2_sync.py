@@ -7,18 +7,17 @@ import logging
 import configparser
 from pathlib import Path
 from datetime import datetime
+import json
 
 logger = logging.getLogger(__name__)
 
-# [Base de Conhecimento, get_steam_path, get_current_autologin, parse_loginusers, set_autologin, get_actual_gpu_ids, analyze_cs2_video, apply_selective_cs2_video continuam iguais, vou omitir apenas para focar nas novidades de versionamento. MANTENHA-AS NO SEU CÓDIGO]
-
-CS2_KNOWLEDGE_BASE = {
-    "AutoConfig": {"nome": "Auto-Configuração da Engine", "ideal": "0", "impacto": "Critico. Previne resets da Source 2."},
-    "setting.r_low_latency": {"nome": "NVIDIA Reflex", "ideal": "2", "impacto": "Alto. Reduz Input Lag (On+Boost)."},
-    "setting.cpu_level": {"nome": "Alocação de Threads (CPU)", "ideal": "3", "impacto": "Medio. Melhora paralelismo."},
-    "setting.gpu_level": {"nome": "Prioridade de Renderização (GPU)", "ideal": "3", "impacto": "Medio. Evita dormencia da placa."},
-    "setting.gpu_mem_level": {"nome": "Alocação de VRAM", "ideal": "3", "impacto": "Alto. Previne engasgos de textura."}
-}
+KNOWLEDGE_PATH = Path(__file__).resolve().parent.parent.parent / "knowledge" / "cs2_video.json"
+try:
+    with open(KNOWLEDGE_PATH, "r", encoding="utf-8") as f:
+        CS2_KNOWLEDGE_BASE = json.load(f)
+except Exception as e:
+    logger.error(f"Erro ao carregar antologia do CS2: {e}")
+    CS2_KNOWLEDGE_BASE = {}
 
 def get_steam_path():
     try:
@@ -205,3 +204,36 @@ def restore_from_commit(steam_path: Path, account: dict, commit_hash: str):
     except Exception as e:
         logger.error(f"Erro ao restaurar backup: {e}")
         return False
+
+def auto_backup_if_changed(steam_path: Path, account: dict):
+    """Detecta alteracoes in-game silenciosamente e commita para o Git."""
+    repo_dir = get_private_repo_path()
+    acc_name = account["AccountName"]
+    account_repo_dir = repo_dir / "cs2" / acc_name
+    
+    # Se nao existe repositorio, nao tem como comparar
+    if not (repo_dir / ".git").exists(): return False
+    
+    account_id = str(int(account["SteamID"]) - 76561197960265728)
+    cfg_dir = steam_path / "userdata" / account_id / "730" / "local" / "cfg"
+    
+    if not (cfg_dir / "cs2_video.txt").exists(): return False
+
+    # 1. Copia os arquivos atuais pro repo secretamente
+    for file_name in ["cs2_video.txt", "autoexec.cfg", "config.cfg"]:
+        src = cfg_dir / file_name
+        dst = account_repo_dir / file_name
+        if src.exists(): shutil.copy2(src, dst)
+        
+    # 2. Pergunta ao Git se os arquivos novos tem diferenca com o ultimo commit
+    try:
+        subprocess.run(["git", "add", "."], cwd=repo_dir, creationflags=subprocess.CREATE_NO_WINDOW)
+        status = subprocess.run(["git", "status", "--porcelain"], cwd=repo_dir, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        
+        if status.stdout.strip():
+            # Tem alteracao! Fazemos o commit automatico.
+            commit_to_git(repo_dir, acc_name, "Auto-Sync || Alterações In-Game detectadas")
+            return True
+    except: pass
+    
+    return False

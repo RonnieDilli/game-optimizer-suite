@@ -1,0 +1,22 @@
+{
+    "AllowPerFrameSleep": {
+        "nome": "Desativar Limitador de Motor",
+        "ideal": "False",
+        "impacto": "Crítico. Impede a Unreal Engine 3 de 'dormir' artificialmente entre os frames, liberando o FPS máximo."
+    },
+    "OneFrameThreadLag": {
+        "nome": "Redução de Input Lag",
+        "ideal": "False",
+        "impacto": "Alto. Quando False, força a CPU e a GPU a trabalharem em sincronia direta, reduzindo o delay direcional."
+    },
+    "DepthOfField": {
+        "nome": "Desfoque de Profundidade",
+        "ideal": "False",
+        "impacto": "Tático. Remove o desfoque de fundo, deixando a leitura da bola clara em qualquer distância."
+    },
+    "bAllowD3D9MSAA": {
+        "nome": "Anti-Aliasing Legado",
+        "ideal": "False",
+        "impacto": "Médio. Desativa chamadas pesadas do DirectX antigo, estabilizando os 1% Lows do frametime."
+    }
+}
