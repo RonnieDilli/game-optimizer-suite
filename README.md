@@ -2,6 +2,11 @@
 
 Coletânea de scripts avançados, interface gráfica e especificações (SDD - Spec-Driven Development) para otimização agressiva de ambiente Windows, serviços de jogos e mitigação de *stuttering* em hardware de alto desempenho.
 
+<img width="1052" height="782" alt="image" src="https://github.com/user-attachments/assets/248e0af3-e3e0-4caa-83e3-0bb3804b00cf" />
+<img width="852" height="668" alt="image" src="https://github.com/user-attachments/assets/686542c4-eb57-41af-be00-16cb22fc0d18" />
+<img width="1052" height="782" alt="image" src="https://github.com/user-attachments/assets/873d885f-7dcd-45b6-bca3-d9734b6ce37d" />
+
+
 ## Visão Geral
 
 O objetivo desta suíte é garantir *frametimes* impecáveis em títulos competitivos (CS2 e Rocket League) ao gerenciar os gargalos de I/O causados por corrupção de WebCaches, Shader Caches do DirectX, bloqueios de arquivos (*File Locks*) impostos pelo kernel gráfico do Windows, e orquestrar de forma automatizada o versionamento de configurações de múltiplas contas.
