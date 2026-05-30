@@ -6,7 +6,7 @@ import shutil
 import logging
 import configparser
 from pathlib import Path
-from datetime import datetime
+import core_git
 import json
 
 logger = logging.getLogger(__name__)
@@ -16,8 +16,48 @@ try:
     with open(KNOWLEDGE_PATH, "r", encoding="utf-8") as f:
         CS2_KNOWLEDGE_BASE = json.load(f)
 except Exception as e:
-    logger.error(f"Erro ao carregar antologia do CS2: {e}")
     CS2_KNOWLEDGE_BASE = {}
+
+def sync_to_repo(cfg_dir: Path, account_name: str, commit_msg: str = "Backup Manual"):
+    base_repo = core_git.get_private_repo_path()
+    account_repo_dir = base_repo / "cs2" / account_name
+    account_repo_dir.mkdir(parents=True, exist_ok=True) # Garante a pasta
+    
+    for file_name in ["cs2_video.txt", "autoexec.cfg", "config.cfg"]:
+        src = cfg_dir / file_name
+        dst = account_repo_dir / file_name
+        if src.exists(): shutil.copy2(src, dst)
+        
+    core_git.commit_to_git(base_repo, f"CS2|{account_name}", commit_msg)
+
+def auto_backup_if_changed(steam_path: Path, account: dict):
+    base_repo = core_git.get_private_repo_path()
+    acc_name = account["AccountName"]
+    account_repo_dir = base_repo / "cs2" / acc_name
+    
+    # CORREÇÃO: Garante que a pasta do Git existe antes de copiar
+    if not account_repo_dir.exists():
+        account_repo_dir.mkdir(parents=True, exist_ok=True)
+    
+    account_id = str(int(account["SteamID"]) - 76561197960265728)
+    cfg_dir = steam_path / "userdata" / account_id / "730" / "local" / "cfg"
+    
+    # Verifica se os arquivos de origem existem
+    changed = False
+    for file_name in ["cs2_video.txt", "autoexec.cfg", "config.cfg"]:
+        src = cfg_dir / file_name
+        if src.exists():
+            shutil.copy2(src, account_repo_dir / file_name)
+            changed = True
+            
+    if not changed: return False
+        
+    try:
+        # Usa o core_git para verificar status e commitar
+        return core_git.commit_to_git(base_repo, f"CS2|{acc_name}", "Auto-Sync || Alterações In-Game detectadas")
+    except Exception as e:
+        logger.error(f"Erro no auto-backup: {e}")
+        return False
 
 def get_steam_path():
     try:
@@ -102,138 +142,3 @@ def apply_selective_cs2_video(steam_path: Path, account: dict, selections: dict,
         content = re.sub(r'("DeviceID"\s*)("\d+")', rf'\g<1>"{real_device}"', content)
     video_cfg_path.write_text(content, encoding="utf-8")
     return cfg_dir
-
-def get_private_repo_path():
-    config_file = Path(__file__).resolve().parent.parent.parent / "local_config.ini"
-    config = configparser.ConfigParser()
-    if config_file.exists():
-        config.read(config_file)
-        if 'USER_DATA' in config and 'PrivateRepoPath' in config['USER_DATA']:
-            return Path(config['USER_DATA']['PrivateRepoPath'])
-    
-    default_path = Path.home() / "Documents" / "CS2_Private_Configs"
-    default_path.mkdir(parents=True, exist_ok=True)
-    config['USER_DATA'] = {'PrivateRepoPath': str(default_path)}
-    with open(config_file, 'w') as configfile: config.write(configfile)
-    return default_path
-
-# ==========================================
-# MOTOR GIT (NOVO BACKEND DE VERSIONAMENTO)
-# ==========================================
-def commit_to_git(repo_dir: Path, account_name: str, message: str = "Backup"):
-    """Inicializa o repositório se necessario e cria um commit com as alteracoes (Forcando UTF-8)."""
-    try:
-        if not (repo_dir / ".git").exists():
-            subprocess.run(["git", "init"], cwd=repo_dir, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
-            
-        subprocess.run(["git", "add", "."], cwd=repo_dir, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
-        
-        status = subprocess.run(["git", "status", "--porcelain"], cwd=repo_dir, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
-        if status.stdout.strip():
-            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            full_msg = f"[{account_name}] {message} - {ts}"
-            
-            # Força o Git a gravar o commit usando a codificacao correta para acentos
-            cmd = ["git", "-c", "i18n.commitEncoding=utf-8", "commit", "-m", full_msg]
-            subprocess.run(cmd, cwd=repo_dir, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
-            logger.info(f"Commit Git criado com sucesso.")
-            return True
-        return False
-    except Exception as e:
-        logger.error(f"Erro no motor Git: {e}")
-    return False
-
-def sync_to_repo(cfg_dir: Path, account_name: str, commit_msg: str = "Auto-sync otimizacao"):
-    base_repo_path = get_private_repo_path()
-    account_repo_dir = base_repo_path / "cs2" / account_name
-    account_repo_dir.mkdir(parents=True, exist_ok=True)
-    
-    for file_name in ["cs2_video.txt", "autoexec.cfg", "config.cfg"]:
-        src = cfg_dir / file_name
-        dst = account_repo_dir / file_name
-        if src.exists(): shutil.copy2(src, dst)
-        
-    # Chama o Git logo após copiar
-    commit_to_git(base_repo_path, account_name, commit_msg)
-
-def get_git_history(account_name: str):
-    """Busca os ultimos 15 backups filtrando pela conta e forcando a leitura em UTF-8."""
-    repo_dir = get_private_repo_path()
-    try:
-        # A flag i18n.logOutputEncoding garante que o subprocess do Python leia os acentos corretamente
-        cmd = ["git", "-c", "i18n.logOutputEncoding=utf-8", "log", "--pretty=format:%h|~|%cd|~|%s", "--date=short", "-n", "15"]
-        
-        # Note o encoding='utf-8' explicitamente declarado aqui
-        output = subprocess.check_output(cmd, cwd=repo_dir, encoding='utf-8', errors='replace', creationflags=subprocess.CREATE_NO_WINDOW)
-        
-        history = []
-        for line in output.split("\n"):
-            if line.strip() and f"[{account_name}]" in line:
-                parts = line.split("|~|")
-                if len(parts) >= 3:
-                    msg = parts[2].replace(f"[{account_name}] ", "")
-                    history.append({"hash": parts[0], "date": parts[1], "msg": msg})
-        return history
-    except Exception as e:
-        return []
-
-def restore_from_commit(steam_path: Path, account: dict, commit_hash: str):
-    """Viaja no tempo, copia os arquivos e REGISTRA o rollback no Git."""
-    repo_dir = get_private_repo_path()
-    acc_name = account["AccountName"]
-    account_repo_dir = repo_dir / "cs2" / acc_name
-    
-    try:
-        # 1. Extrai os arquivos do passado no repo local
-        subprocess.run(["git", "checkout", commit_hash, "--", f"cs2/{acc_name}"], cwd=repo_dir, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
-        
-        # 2. Copia de volta para a Steam
-        account_id = str(int(account["SteamID"]) - 76561197960265728)
-        cfg_dir = steam_path / "userdata" / account_id / "730" / "local" / "cfg"
-        
-        for file_name in ["cs2_video.txt", "autoexec.cfg", "config.cfg"]:
-            src = account_repo_dir / file_name
-            dst = cfg_dir / file_name
-            if src.exists(): shutil.copy2(src, dst)
-            
-        # 3. A CORREÇÃO: Em vez de resetar, nós commitamos o Rollback!
-        commit_to_git(repo_dir, acc_name, f"Rollback efetuado para o ID {commit_hash}")
-        
-        logger.info(f"SUCESSO: Configuracoes restauradas para a versao {commit_hash} na conta {acc_name}.")
-        return True
-    except Exception as e:
-        logger.error(f"Erro ao restaurar backup: {e}")
-        return False
-
-def auto_backup_if_changed(steam_path: Path, account: dict):
-    """Detecta alteracoes in-game silenciosamente e commita para o Git."""
-    repo_dir = get_private_repo_path()
-    acc_name = account["AccountName"]
-    account_repo_dir = repo_dir / "cs2" / acc_name
-    
-    # Se nao existe repositorio, nao tem como comparar
-    if not (repo_dir / ".git").exists(): return False
-    
-    account_id = str(int(account["SteamID"]) - 76561197960265728)
-    cfg_dir = steam_path / "userdata" / account_id / "730" / "local" / "cfg"
-    
-    if not (cfg_dir / "cs2_video.txt").exists(): return False
-
-    # 1. Copia os arquivos atuais pro repo secretamente
-    for file_name in ["cs2_video.txt", "autoexec.cfg", "config.cfg"]:
-        src = cfg_dir / file_name
-        dst = account_repo_dir / file_name
-        if src.exists(): shutil.copy2(src, dst)
-        
-    # 2. Pergunta ao Git se os arquivos novos tem diferenca com o ultimo commit
-    try:
-        subprocess.run(["git", "add", "."], cwd=repo_dir, creationflags=subprocess.CREATE_NO_WINDOW)
-        status = subprocess.run(["git", "status", "--porcelain"], cwd=repo_dir, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
-        
-        if status.stdout.strip():
-            # Tem alteracao! Fazemos o commit automatico.
-            commit_to_git(repo_dir, acc_name, "Auto-Sync || Alterações In-Game detectadas")
-            return True
-    except: pass
-    
-    return False
