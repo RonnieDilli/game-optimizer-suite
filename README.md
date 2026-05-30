@@ -18,6 +18,10 @@ A suíte opera de forma independente ou orquestrada, gerando auditoria em tempo 
 * **`scripts/games/`:** * **Epic Games e Rocket League (`epic_rl_repair.bat`):** Foco em otimização do *Epic Online Services* (EOS Overlay) que sabota o *frametime* e limpeza gráfica (`TAGame/Cache`).
     * **CS2 Sync & Optimizer (`cs2_sync.py`):** Script Python interativo para troca dinâmica de contas de forma rápida (manipulando `AutoLoginUser`), injeção segura de *templates* de vídeo (`AutoConfig 0` com hardware WMI real) e sincronização contínua das `configs` no repositório.
 
+* **`scripts/games/`:** * **Epic Games e Rocket League (`epic_rl_repair.bat`):** Foco em otimização do *Epic Online Services* e limpeza gráfica (`TAGame/Cache`).
+    * **CS2 Sync & Optimizer (`cs2_sync.py`):** Script Python interativo para troca dinâmica de contas, injeção de *templates* e sincronização no Git. 
+    * 📖 **[LEIA AQUI: Guia Completo de Otimização de Vídeo do CS2](docs/CS2_VIDEO_CONFIG_GUIDE.md)**
+
 ## Instalação e Uso
 
 1.  **Limpeza Contínua (Recomendado):** Navegue até `scripts/hardware/`, clique com o botão direito em `setup_autorun.bat` e **Execute como Administrador**. Isso garante que sua placa de vídeo inicie 100% livre de bloqueios todos os dias.
