@@ -122,11 +122,10 @@ def get_private_repo_path():
 # MOTOR GIT (NOVO BACKEND DE VERSIONAMENTO)
 # ==========================================
 def commit_to_git(repo_dir: Path, account_name: str, message: str = "Backup"):
-    """Inicializa o repositório se necessario e cria um commit com as alteracoes."""
+    """Inicializa o repositório se necessario e cria um commit com as alteracoes (Forcando UTF-8)."""
     try:
         if not (repo_dir / ".git").exists():
             subprocess.run(["git", "init"], cwd=repo_dir, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
-            logger.info("Repositorio Git inicializado com sucesso.")
             
         subprocess.run(["git", "add", "."], cwd=repo_dir, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
         
@@ -134,14 +133,13 @@ def commit_to_git(repo_dir: Path, account_name: str, message: str = "Backup"):
         if status.stdout.strip():
             ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             full_msg = f"[{account_name}] {message} - {ts}"
-            subprocess.run(["git", "commit", "-m", full_msg], cwd=repo_dir, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
-            logger.info(f"Commit Git criado: {full_msg}")
+            
+            # Força o Git a gravar o commit usando a codificacao correta para acentos
+            cmd = ["git", "-c", "i18n.commitEncoding=utf-8", "commit", "-m", full_msg]
+            subprocess.run(cmd, cwd=repo_dir, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            logger.info(f"Commit Git criado com sucesso.")
             return True
-        else:
-            logger.info("Nenhuma alteracao detectada. O Git nao criou um novo commit (Backup ja esta na ultima versao).")
-            return False
-    except FileNotFoundError:
-        logger.warning("Git nao encontrado no sistema. Versionamento ignorado (Apenas copia de arquivos realizada).")
+        return False
     except Exception as e:
         logger.error(f"Erro no motor Git: {e}")
     return False
@@ -160,23 +158,24 @@ def sync_to_repo(cfg_dir: Path, account_name: str, commit_msg: str = "Auto-sync 
     commit_to_git(base_repo_path, account_name, commit_msg)
 
 def get_git_history(account_name: str):
-    """Busca os ultimos 15 backups com delimitadores blindados."""
+    """Busca os ultimos 15 backups filtrando pela conta e forcando a leitura em UTF-8."""
     repo_dir = get_private_repo_path()
     try:
-        # Usamos |~| como delimitador para não conflitar com textos normais
-        cmd = ["git", "log", "--pretty=format:%h|~|%cd|~|%s", "--date=short", "-n", "15"]
-        output = subprocess.check_output(cmd, cwd=repo_dir, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        # A flag i18n.logOutputEncoding garante que o subprocess do Python leia os acentos corretamente
+        cmd = ["git", "-c", "i18n.logOutputEncoding=utf-8", "log", "--pretty=format:%h|~|%cd|~|%s", "--date=short", "-n", "15"]
+        
+        # Note o encoding='utf-8' explicitamente declarado aqui
+        output = subprocess.check_output(cmd, cwd=repo_dir, encoding='utf-8', errors='replace', creationflags=subprocess.CREATE_NO_WINDOW)
+        
         history = []
         for line in output.split("\n"):
             if line.strip() and f"[{account_name}]" in line:
                 parts = line.split("|~|")
                 if len(parts) >= 3:
-                    # Remove a tag [AccountName] do titulo para deixar a UI mais limpa
                     msg = parts[2].replace(f"[{account_name}] ", "")
                     history.append({"hash": parts[0], "date": parts[1], "msg": msg})
         return history
     except Exception as e:
-        logger.error(f"Erro ao buscar historico git: {e}")
         return []
 
 def restore_from_commit(steam_path: Path, account: dict, commit_hash: str):

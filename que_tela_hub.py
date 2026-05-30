@@ -220,20 +220,19 @@ class QueTelaApp(ctk.CTk):
             cfg_dir = cs2_sync.apply_selective_cs2_video(cs2_sync.get_steam_path(), account, selections, force)
             
             if cfg_dir:
+                # Removemos o truncamento agressivo e adotamos o separador ||
                 if len(selections) == len(analysis_data):
-                    commit_msg = "Otimizado: Template completo aplicado"
+                    commit_msg = "Otimizacao Completa || Todas as variaveis da Base de Conhecimento aplicadas."
                 else:
                     changed_names = [cs2_sync.CS2_KNOWLEDGE_BASE[k]["nome"] for k in selections.keys()]
-                    short_summary = ", ".join(changed_names)
-                    if len(short_summary) > 40: short_summary = short_summary[:37] + "..."
-                    commit_msg = f"Ajuste Fino: {short_summary}"
+                    detalhes = "Alterado: " + ", ".join(changed_names)
+                    commit_msg = f"Ajuste Fino Seletivo || {detalhes}"
                 
                 cs2_sync.sync_to_repo(cfg_dir, account['AccountName'], commit_msg=commit_msg)
-                self.log_to_console(f"Otimizações aplicadas e versionadas: {commit_msg}", "INFO")
+                self.log_to_console(f"Otimizações aplicadas e versionadas com sucesso.", "INFO")
                 
-                # A CORREÇÃO: Força a interface a atualizar o Dropdown automaticamente!
-                if on_success:
-                    on_success()
+                # Auto-Refresh da interface de historico
+                if on_success: on_success()
                     
             modal.destroy()
             
@@ -308,7 +307,8 @@ class QueTelaApp(ctk.CTk):
         hist_frame.pack(fill="x", padx=10, pady=5)
         
         # Painel Rico de Metadados
-        self.hist_details = ctk.CTkTextbox(tab_git, height=80, fg_color="#2C3E50", text_color="white")
+        # Aumentamos a altura (height) para caber a lista de modificacoes
+        self.hist_details = ctk.CTkTextbox(tab_git, height=140, fg_color="#2C3E50", text_color="white", font=ctk.CTkFont(size=12))
         self.hist_details.pack(fill="x", padx=15, pady=(5, 15))
         self.hist_details.insert("0.0", "Carregue o historico para ver os detalhes do snapshot.")
         self.hist_details.configure(state="disabled")
@@ -317,9 +317,34 @@ class QueTelaApp(ctk.CTk):
             self.hist_details.configure(state="normal")
             self.hist_details.delete("0.0", "end")
             try:
-                parts = choice.split(" | ")
-                self.hist_details.insert("0.0", f"ID Snapshot: {parts[0]}\nData Local: {parts[1]}\nDetalhes: {parts[2]}")
-            except:
+                parts = choice.split(" | ", 2)
+                hash_val = parts[0]
+                date_val = parts[1]
+                msg_val = parts[2]
+                
+                # Remove a timestamp do final do titulo
+                clean_msg = msg_val.split(" - 202")[0]
+                
+                # Separa o titulo geral das modificacoes especificas
+                if " || " in clean_msg:
+                    title, details = clean_msg.split(" || ")
+                else:
+                    title = clean_msg
+                    details = ""
+                
+                # Diagramacao elegante
+                display = f"📌 ID do Snapshot: {hash_val}\n"
+                display += f"📅 Data de Registro: {date_val}\n"
+                display += f"🏷️ Resumo: {title}\n"
+                
+                if details:
+                    display += "⚙️ Modificações Salvas na Engine:\n"
+                    items = details.replace("Alterado: ", "").split(", ")
+                    for item in items:
+                        display += f"   └─ {item}\n"
+                        
+                self.hist_details.insert("0.0", display)
+            except Exception as e:
                 self.hist_details.insert("0.0", f"Detalhes do Snapshot:\n{choice}")
             self.hist_details.configure(state="disabled")
 
