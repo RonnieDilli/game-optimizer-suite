@@ -160,27 +160,33 @@ def sync_to_repo(cfg_dir: Path, account_name: str, commit_msg: str = "Auto-sync 
     commit_to_git(base_repo_path, account_name, commit_msg)
 
 def get_git_history(account_name: str):
-    """Busca os ultimos 15 backups (commits) filtrando pela conta."""
+    """Busca os ultimos 15 backups com delimitadores blindados."""
     repo_dir = get_private_repo_path()
     try:
-        output = subprocess.check_output(["git", "log", "--pretty=format:%h|%s|%cd", "--date=short", "-n", "15"], cwd=repo_dir, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        # Usamos |~| como delimitador para não conflitar com textos normais
+        cmd = ["git", "log", "--pretty=format:%h|~|%cd|~|%s", "--date=short", "-n", "15"]
+        output = subprocess.check_output(cmd, cwd=repo_dir, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
         history = []
         for line in output.split("\n"):
             if line.strip() and f"[{account_name}]" in line:
-                parts = line.split("|")
-                history.append({"hash": parts[0], "msg": parts[1].replace(f"[{account_name}] ", ""), "date": parts[2]})
+                parts = line.split("|~|")
+                if len(parts) >= 3:
+                    # Remove a tag [AccountName] do titulo para deixar a UI mais limpa
+                    msg = parts[2].replace(f"[{account_name}] ", "")
+                    history.append({"hash": parts[0], "date": parts[1], "msg": msg})
         return history
-    except:
+    except Exception as e:
+        logger.error(f"Erro ao buscar historico git: {e}")
         return []
 
 def restore_from_commit(steam_path: Path, account: dict, commit_hash: str):
-    """Viaja no tempo e copia os arquivos de um commit especifico de volta para a Steam."""
+    """Viaja no tempo, copia os arquivos e REGISTRA o rollback no Git."""
     repo_dir = get_private_repo_path()
     acc_name = account["AccountName"]
     account_repo_dir = repo_dir / "cs2" / acc_name
     
     try:
-        # 1. Extrai os arquivos do passado para a pasta local do repo
+        # 1. Extrai os arquivos do passado no repo local
         subprocess.run(["git", "checkout", commit_hash, "--", f"cs2/{acc_name}"], cwd=repo_dir, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
         
         # 2. Copia de volta para a Steam
@@ -192,9 +198,8 @@ def restore_from_commit(steam_path: Path, account: dict, commit_hash: str):
             dst = cfg_dir / file_name
             if src.exists(): shutil.copy2(src, dst)
             
-        # 3. Limpa a "viagem no tempo" do Git para nao deixar o repo sujo
-        subprocess.run(["git", "reset", "HEAD", f"cs2/{acc_name}"], cwd=repo_dir, creationflags=subprocess.CREATE_NO_WINDOW)
-        subprocess.run(["git", "checkout", "--", f"cs2/{acc_name}"], cwd=repo_dir, creationflags=subprocess.CREATE_NO_WINDOW)
+        # 3. A CORREÇÃO: Em vez de resetar, nós commitamos o Rollback!
+        commit_to_git(repo_dir, acc_name, f"Rollback efetuado para o ID {commit_hash}")
         
         logger.info(f"SUCESSO: Configuracoes restauradas para a versao {commit_hash} na conta {acc_name}.")
         return True

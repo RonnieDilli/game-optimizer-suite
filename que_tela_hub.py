@@ -123,25 +123,30 @@ class QueTelaApp(ctk.CTk):
             widget.destroy()
 
     def monitor_system_loop(self):
+        """Monitora processos com blindagem contra destruicao de widgets."""
         try:
             output = subprocess.check_output('tasklist', shell=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW).lower()
             self.steam_running = "steam.exe" in output
             self.cs2_running = "cs2.exe" in output
             self.rl_running = "rocketleague.exe" in output
-        except: pass
 
-        self.lbl_steam.configure(text="🔴 Steam Rodando" if self.steam_running else "🟢 Steam Fechada")
-        self.lbl_cs2.configure(text="🔴 CS2 Rodando" if self.cs2_running else "⚪ CS2 Inativo")
-        self.lbl_rl.configure(text="🔴 RL Rodando" if self.rl_running else "⚪ RL Inativo")
-        self.lbl_routine.configure(text="🔴 Manutenção Ativa" if self.routine_running else "🟢 Rotinas Livres", text_color="red" if self.routine_running else "white")
+            self.lbl_steam.configure(text="🔴 Steam Rodando" if self.steam_running else "🟢 Steam Fechada")
+            self.lbl_cs2.configure(text="🔴 CS2 Rodando" if self.cs2_running else "⚪ CS2 Inativo")
+            self.lbl_rl.configure(text="🔴 RL Rodando" if self.rl_running else "⚪ RL Inativo")
+            self.lbl_routine.configure(text="🔴 Manutenção Ativa" if self.routine_running else "🟢 Rotinas Livres", text_color="red" if self.routine_running else "white")
 
-        if hasattr(self, 'btn_start_steam'):
-            if self.routine_running:
-                self.btn_start_steam.configure(state="disabled", text="Bloqueado (Rotina)")
-            else:
-                self.btn_start_steam.configure(state="normal", text="Abrir Steam")
-
-        self.after(3000, self.monitor_system_loop)
+            # Checa se o botao existe na tela antes de interagir (Isso previne o crash do Tkinter)
+            if hasattr(self, 'btn_start_steam') and self.btn_start_steam.winfo_exists():
+                if self.routine_running:
+                    self.btn_start_steam.configure(state="disabled", text="Bloqueado (Rotina)")
+                else:
+                    self.btn_start_steam.configure(state="normal", text="Abrir Steam")
+        
+        except Exception as e:
+            # Ignora erros visuais para nao matar o loop
+            pass
+        finally:
+            self.after(3000, self.monitor_system_loop)
 
     def tail_log_file(self, log_path, seconds=15):
         def tail_task():
@@ -182,7 +187,7 @@ class QueTelaApp(ctk.CTk):
             self.log_to_console("Operacao cancelada no UAC.", "ERROR")
 
     # ==================== INTERFACE INTERATIVA (MODAL DE DIFF) ====================
-    def open_analysis_modal(self, analysis_data, account):
+    def open_analysis_modal(self, analysis_data, account, on_success=None):
         modal = ctk.CTkToplevel(self)
         modal.title(f"Auditoria de Motor Gráfico: {account['PersonaName']}")
         modal.geometry("850x600")
@@ -211,11 +216,25 @@ class QueTelaApp(ctk.CTk):
                 modal.destroy()
                 return
                 
-            force = hasattr(self, 'chk_force_gpu') and self.chk_force_gpu.get() == 1
+            force = hasattr(self, 'chk_force_gpu') and self.chk_force_gpu.winfo_exists() and self.chk_force_gpu.get() == 1
             cfg_dir = cs2_sync.apply_selective_cs2_video(cs2_sync.get_steam_path(), account, selections, force)
+            
             if cfg_dir:
-                cs2_sync.sync_to_repo(cfg_dir, account['AccountName'], commit_msg="Otimizacao via Hub")
-                self.log_to_console(f"Otimizações selecionadas aplicadas e versionadas com sucesso no Git Privado.", "INFO")
+                if len(selections) == len(analysis_data):
+                    commit_msg = "Otimizado: Template completo aplicado"
+                else:
+                    changed_names = [cs2_sync.CS2_KNOWLEDGE_BASE[k]["nome"] for k in selections.keys()]
+                    short_summary = ", ".join(changed_names)
+                    if len(short_summary) > 40: short_summary = short_summary[:37] + "..."
+                    commit_msg = f"Ajuste Fino: {short_summary}"
+                
+                cs2_sync.sync_to_repo(cfg_dir, account['AccountName'], commit_msg=commit_msg)
+                self.log_to_console(f"Otimizações aplicadas e versionadas: {commit_msg}", "INFO")
+                
+                # A CORREÇÃO: Força a interface a atualizar o Dropdown automaticamente!
+                if on_success:
+                    on_success()
+                    
             modal.destroy()
             
         btn = ctk.CTkButton(modal, text="Aplicar Selecionados & Sincronizar", fg_color="#8E44AD", hover_color="#732D91", command=apply_selections)
@@ -280,14 +299,31 @@ class QueTelaApp(ctk.CTk):
                 return
             acc = accounts[acc_names.index(self.combo_accounts.get())]
             data = cs2_sync.analyze_cs2_video(steam_path, acc)
-            self.open_analysis_modal(data, acc)
+            self.open_analysis_modal(data, acc, on_success=load_history)
 
         ctk.CTkButton(tab_video, text="Abrir Analisador Visual (Diff)", fg_color="#F39C12", hover_color="#D68910", text_color="black", command=trigger_analysis).grid(row=2, column=0, padx=15, pady=15, sticky="w")
 
-        # --- ABA 3: GIT ---
+        # --- ABA 3: GIT & METADADOS ---
         hist_frame = ctk.CTkFrame(tab_git, fg_color="transparent")
         hist_frame.pack(fill="x", padx=10, pady=5)
-        self.combo_commits = ctk.CTkComboBox(hist_frame, values=["Carregue o histórico primeiro..."], width=400)
+        
+        # Painel Rico de Metadados
+        self.hist_details = ctk.CTkTextbox(tab_git, height=80, fg_color="#2C3E50", text_color="white")
+        self.hist_details.pack(fill="x", padx=15, pady=(5, 15))
+        self.hist_details.insert("0.0", "Carregue o historico para ver os detalhes do snapshot.")
+        self.hist_details.configure(state="disabled")
+
+        def on_commit_selected(choice):
+            self.hist_details.configure(state="normal")
+            self.hist_details.delete("0.0", "end")
+            try:
+                parts = choice.split(" | ")
+                self.hist_details.insert("0.0", f"ID Snapshot: {parts[0]}\nData Local: {parts[1]}\nDetalhes: {parts[2]}")
+            except:
+                self.hist_details.insert("0.0", f"Detalhes do Snapshot:\n{choice}")
+            self.hist_details.configure(state="disabled")
+
+        self.combo_commits = ctk.CTkComboBox(hist_frame, values=["Histórico não carregado"], width=400, command=on_commit_selected)
         self.combo_commits.grid(row=0, column=0, padx=5, pady=5)
 
         def load_history():
@@ -295,32 +331,33 @@ class QueTelaApp(ctk.CTk):
             acc = accounts[acc_names.index(self.combo_accounts.get())]
             history = cs2_sync.get_git_history(acc['AccountName'])
             if history:
-                opts = [f"{h['hash']} | {h['date']} - {h['msg']}" for h in history]
+                opts = [f"{h['hash']} | {h['date']} | {h['msg']}" for h in history]
                 self.combo_commits.configure(values=opts)
                 self.combo_commits.set(opts[0])
-                self.log_to_console(f"Histórico Git carregado: {len(history)} backups.", "INFO")
+                on_commit_selected(opts[0])
+                self.log_to_console(f"Histórico Git carregado: {len(history)} backups encontrados.", "INFO")
             else:
                 self.log_to_console("Nenhum backup encontrado ou Git ausente.", "WARNING")
 
         ctk.CTkButton(hist_frame, text="Carregar Histórico", command=load_history).grid(row=0, column=1, padx=10)
 
         git_actions = ctk.CTkFrame(tab_git, fg_color="transparent")
-        git_actions.pack(fill="x", padx=10, pady=15)
+        git_actions.pack(fill="x", padx=10, pady=0)
 
         def force_backup():
             if not accounts: return
             acc = accounts[acc_names.index(self.combo_accounts.get())]
             account_id = str(int(acc["SteamID"]) - 76561197960265728)
             cfg_dir = steam_path / "userdata" / account_id / "730" / "local" / "cfg"
-            cs2_sync.sync_to_repo(cfg_dir, acc['AccountName'], commit_msg="Backup Manual via Hub")
+            cs2_sync.sync_to_repo(cfg_dir, acc['AccountName'], commit_msg="Backup Manual de Segurança")
             load_history()
 
         def restore_selected():
-            if not accounts or "Carregue" in self.combo_commits.get(): return
+            if not accounts or "Histórico" in self.combo_commits.get(): return
             acc = accounts[acc_names.index(self.combo_accounts.get())]
             commit_hash = self.combo_commits.get().split(" | ")[0]
             if cs2_sync.restore_from_commit(steam_path, acc, commit_hash):
-                self.log_to_console("Rollback efetuado! Steam restaurada.", "INFO")
+                self.log_to_console(f"Rollback efetuado! Arquivos revertidos para o estado do ID {commit_hash}.", "INFO")
 
         def export_zip():
             if not accounts: return
