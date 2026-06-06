@@ -215,70 +215,124 @@ class QueTelaApp(ctk.CTk):
         btn = ctk.CTkButton(modal, text="Aplicar Selecionados & Sincronizar", fg_color="#8E44AD", hover_color="#732D91", command=apply_selections)
         btn.pack(pady=20)
 
-    # ==================== TELAS ====================
+        # ==================== TELAS ====================
     def show_steam_manager(self):
         self.clear_view()
-        ctk.CTkLabel(self.view_frame, text="Steam & CS2 Hub", font=ctk.CTkFont(size=20, weight="bold")).pack(anchor="w", padx=20, pady=(20, 0))
-        if not cs2_sync: return
+        
+        # Header e Status
+        header_frame = ctk.CTkFrame(self.view_frame, fg_color="transparent")
+        header_frame.pack(fill="x", padx=20, pady=(20, 10))
+        
+        ctk.CTkLabel(header_frame, text="Gestão de Contas Steam", font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
+        
+        current_user = cs2_sync.get_current_autologin() if cs2_sync else "N/A"
+        badge = ctk.CTkFrame(header_frame, fg_color="#2980B9", corner_radius=15)
+        badge.pack(side="right")
+        ctk.CTkLabel(badge, text=f" Ativo: {current_user} ", font=ctk.CTkFont(size=12, weight="bold")).pack(padx=10, pady=2)
+
+        if not cs2_sync:
+            ctk.CTkLabel(self.view_frame, text="Módulo cs2_sync não encontrado!", text_color="red").pack(pady=20)
+            return
 
         steam_path = cs2_sync.get_steam_path()
         accounts = cs2_sync.parse_loginusers(steam_path) if steam_path else []
-        acc_names = [f"{acc['PersonaName']} ({acc['AccountName']})" for acc in accounts] if accounts else ["Nenhuma"]
+
+        # Barra de Ações Rápidas (Steam Control)
+        actions_bar = ctk.CTkFrame(self.view_frame, fg_color="#1A1A1A", height=50)
+        actions_bar.pack(fill="x", padx=20, pady=10)
         
-        user_header = ctk.CTkFrame(self.view_frame, fg_color="#2980B9", corner_radius=5)
-        user_header.pack(fill="x", padx=20, pady=15)
-        ctk.CTkLabel(user_header, text=f"👤 Usuário Ativo: {cs2_sync.get_current_autologin()}", font=ctk.CTkFont(weight="bold", size=14)).pack(pady=10)
-
-        # SEÇÃO 1: SESSÕES
-        sess_frame = ctk.CTkFrame(self.view_frame)
-        sess_frame.pack(fill="x", padx=20, pady=5)
-        ctk.CTkLabel(sess_frame, text="1. SESSÕES STEAM E AUTO-BACKUP", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=15, pady=10)
+        def kill_steam():
+            subprocess.run(["taskkill", "/F", "/IM", "Steam.exe"], creationflags=subprocess.CREATE_NO_WINDOW)
+            self.log_to_console("Comando para encerrar Steam enviado.", "INFO")
         
-        self.combo_accounts = ctk.CTkComboBox(sess_frame, values=acc_names, width=300)
-        self.combo_accounts.pack(anchor="w", padx=15, pady=5)
-
-        def check_auto_backup(choice):
-            acc = accounts[acc_names.index(choice)]
-            if cs2_sync.auto_backup_if_changed(steam_path, acc):
-                self.log_to_console("NOVA CONFIGURAÇÃO DETECTADA! O Git salvou as alterações In-Game automaticamente.", "INFO")
-        self.combo_accounts.configure(command=check_auto_backup)
-
-        actions_frame = ctk.CTkFrame(sess_frame, fg_color="transparent")
-        actions_frame.pack(anchor="w", padx=5, pady=10)
-
-        def kill_steam(): subprocess.run(["taskkill", "/F", "/IM", "Steam.exe"], creationflags=subprocess.CREATE_NO_WINDOW)
-        def start_steam(): 
+        def start_steam():
             args = ["-tcp", "-clearbeta"] if self.chk_safe_mode.get() == 1 else []
-            if steam_path: subprocess.Popen([str(steam_path / "Steam.exe")] + args)
-        def inject_login():
-            if self.steam_running:
-                self.log_to_console("Feche a Steam primeiro para injetar chaves!", "WARNING")
-                return
-            cs2_sync.set_autologin(accounts[acc_names.index(self.combo_accounts.get())]['AccountName'])
-            self.show_steam_manager()
+            if steam_path:
+                subprocess.Popen([str(steam_path / "Steam.exe")] + args)
+                self.log_to_console(f"Iniciando Steam {'(Safe Mode)' if args else ''}...", "INFO")
 
-        ctk.CTkButton(actions_frame, text="Fechar Steam", width=120, fg_color="#C0392B", hover_color="#922B21", command=kill_steam).pack(side="left", padx=10)
-        ctk.CTkButton(actions_frame, text="Injetar Conta", width=120, command=inject_login).pack(side="left", padx=10)
-        self.btn_start_steam = ctk.CTkButton(actions_frame, text="Abrir Steam", width=120, fg_color="#27AE60", hover_color="#1E8449", command=start_steam)
-        self.btn_start_steam.pack(side="left", padx=10)
-        self.chk_safe_mode = ctk.CTkCheckBox(actions_frame, text="Modo Seguro")
+        ctk.CTkButton(actions_bar, text="ENCERRAR STEAM", fg_color="#C0392B", hover_color="#E74C3C", width=140, font=ctk.CTkFont(weight="bold"), command=kill_steam).pack(side="left", padx=10, pady=10)
+        self.btn_start_steam = ctk.CTkButton(actions_bar, text="ABRIR STEAM", fg_color="#27AE60", hover_color="#2ECC71", width=140, font=ctk.CTkFont(weight="bold"), command=start_steam)
+        self.btn_start_steam.pack(side="left", padx=5, pady=10)
+        
+        self.chk_safe_mode = ctk.CTkCheckBox(actions_bar, text="Modo Seguro (TCP)", font=ctk.CTkFont(size=11))
         self.chk_safe_mode.pack(side="left", padx=15)
 
-        # SEÇÃO 2: VÍDEO
-        cfg_frame = ctk.CTkFrame(self.view_frame)
-        cfg_frame.pack(fill="x", padx=20, pady=10)
-        ctk.CTkLabel(cfg_frame, text="2. AUDITORIA DA SOURCE 2 (CS2_VIDEO.JSON)", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=15, pady=10)
-        self.chk_force_gpu = ctk.CTkCheckBox(cfg_frame, text="Forçar WMI (Use se trocou a placa de vídeo fisicamente)")
-        self.chk_force_gpu.pack(anchor="w", padx=15, pady=5)
-
+        # Seção de Auditoria CS2 (Compacta)
+        audit_frame = ctk.CTkFrame(self.view_frame, border_width=1, border_color="#333333")
+        audit_frame.pack(fill="x", padx=20, pady=10)
+        
         def trigger_analysis():
             if self.cs2_running:
                 self.log_to_console("Feche o CS2 para modificar a Engine.", "WARNING")
                 return
-            acc = accounts[acc_names.index(self.combo_accounts.get())]
-            data = cs2_sync.analyze_cs2_video(steam_path, acc)
-            self.open_analysis_modal(data, acc, is_cs2=True)
-        ctk.CTkButton(cfg_frame, text="Analisar CS2 (Diff)", fg_color="#F39C12", hover_color="#D68910", text_color="black", command=trigger_analysis).pack(anchor="w", padx=15, pady=15)
+            # Pega o usuário logado atualmente para analisar
+            user_now = cs2_sync.get_current_autologin()
+            acc = next((a for a in accounts if a['AccountName'] == user_now), None)
+            if acc:
+                data = cs2_sync.analyze_cs2_video(steam_path, acc)
+                self.open_analysis_modal(data, acc, is_cs2=True)
+            else:
+                self.log_to_console("Não foi possível determinar a conta ativa para auditoria.", "ERROR")
+
+        ctk.CTkLabel(audit_frame, text="Configurações de Vídeo (Engine Source 2)", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=15, pady=10)
+        self.chk_force_gpu = ctk.CTkCheckBox(audit_frame, text="Forçar HW-ID", font=ctk.CTkFont(size=11))
+        self.chk_force_gpu.pack(side="left", padx=10)
+        ctk.CTkButton(audit_frame, text="Analisar CS2 Video", width=150, height=28, fg_color="#F39C12", text_color="black", command=trigger_analysis).pack(side="right", padx=15)
+
+        # Galeria de Contas
+        ctk.CTkLabel(self.view_frame, text="Selecione um Perfil para Injetar:", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=25, pady=(10, 5))
+        
+        scroll_acc = ctk.CTkScrollableFrame(self.view_frame, height=320, fg_color="transparent")
+        scroll_acc.pack(fill="both", expand=True, padx=20, pady=5)
+
+        # Grid logic
+        cols = 2
+        for i, acc in enumerate(accounts):
+            is_active = acc['AccountName'] == current_user
+            card = ctk.CTkFrame(scroll_acc, fg_color="#2C3E50" if not is_active else "#34495E", border_width=2 if is_active else 0, border_color="#2980B9")
+            card.grid(row=i//cols, column=i%cols, padx=10, pady=10, sticky="nsew")
+            scroll_acc.grid_columnconfigure(i%cols, weight=1)
+
+            info_f = ctk.CTkFrame(card, fg_color="transparent")
+            info_f.pack(side="left", padx=15, pady=10, fill="x", expand=True)
+            
+            ctk.CTkLabel(info_f, text=acc['PersonaName'], font=ctk.CTkFont(size=15, weight="bold"), anchor="w").pack(fill="x")
+            ctk.CTkLabel(info_f, text=f"Login: {acc['AccountName']}", font=ctk.CTkFont(size=12), text_color="#BDC3C7", anchor="w").pack(fill="x")
+
+            def make_inject_cmd(username):
+                return lambda: self.inject_and_sync(username, steam_path, accounts)
+
+            btn_color = ("#34495E", "#34495E") if is_active else ("#2980B9", "#3498DB")
+            btn_text = "CONTA ATIVA" if is_active else "LOGAR NESTA"
+            
+            btn_sel = ctk.CTkButton(card, text=btn_text, width=100, height=35, 
+                                   fg_color=btn_color[0], hover_color=btn_color[1],
+                                   state="disabled" if is_active else "normal",
+                                   command=make_inject_cmd(acc['AccountName']))
+            btn_sel.pack(side="right", padx=15)
+
+    def inject_and_sync(self, username, steam_path, accounts):
+        if self.steam_running:
+            self.log_to_console("Feche a Steam antes de trocar de conta!", "WARNING")
+            return
+        
+        acc = next((a for a in accounts if a['AccountName'] == username), None)
+        if not acc: return
+
+        # 1. Troca o Autologin no Registro
+        if cs2_sync.set_autologin(username):
+            self.log_to_console(f"Perfil {username} injetado com sucesso.", "INFO")
+            
+            # 2. Verifica se houve mudanças na conta anterior (Backup Automático)
+            if cs2_sync.auto_backup_if_changed(steam_path, acc):
+                self.log_to_console(f"Backup de segurança atualizado para {username}.", "INFO")
+            
+            # Atualiza a UI
+            self.show_steam_manager()
+        else:
+            self.log_to_console("Falha ao injetar conta no Registro do Windows.", "ERROR")
+
 
     def show_epic_rl(self):
         self.clear_view()
