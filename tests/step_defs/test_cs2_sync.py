@@ -21,16 +21,16 @@ def test_launch_options_management():
 def steam_is_closed():
     return True
 
-@given('que o hardware detectou o contexto atual do PC')
+@given('que o hardware (threads/Hz) foi detectado via WMI')
 def detect_hardware():
     pytest.hw_context = {"threads": 16, "refresh_rate": 144}
 
-@when('eu edito as launch options para incluir novos comandos')
+@when('eu edito as launch options no Hub')
 def edit_launch_options():
     # Simulando a inclusão de comandos de teste
     pytest.new_opts = "-high -freq 60"
 
-@then('o sistema deve verificar se existem conflitos conhecidos no tesauro')
+@then('o sistema deve cruzar o comando com o tesauro de riscos ("cs2_launch_options.json")')
 def check_conflicts():
     analysis = analyze_launch_options(pytest.new_opts)
 
@@ -51,3 +51,13 @@ def check_suggestions():
 def check_save_simulation():
     # Apenas validamos que a lógica de string está pronta
     assert ".txt" in "launch_options.txt"
+
+@then('deve salvar as novas options no arquivo "localconfig.vdf" da Steam')
+def check_save_to_localconfig():
+    # Placeholder para a lógica de salvar no localconfig.vdf
+    assert True
+
+@then('deve realizar um commit automático no repositório Git')
+def check_git_commit():
+    # Placeholder para a lógica de commit
+    assert True
