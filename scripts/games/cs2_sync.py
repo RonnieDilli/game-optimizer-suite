@@ -17,11 +17,31 @@ LAUNCH_KNOWLEDGE_PATH = Path(__file__).resolve().parent.parent.parent / "knowled
 
 def load_json(path):
     try:
-        with open(path, "r", encoding="utf-8") as f: return json.load(f)
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if data is not None else {}
     except: return {}
 
 CS2_KNOWLEDGE_BASE = load_json(KNOWLEDGE_PATH)
 CS2_LAUNCH_KNOWLEDGE = load_json(LAUNCH_KNOWLEDGE_PATH)
+
+def create_manual_restore_point(steam_path: Path, account: dict):
+    import datetime
+    account_id = str(int(account["SteamID"]) - 76561197960265728)
+    cfg_dir = steam_path / "userdata" / account_id / "730" / "local" / "cfg"
+    
+    # Define o caminho do backup
+    backup_root = Path(__file__).resolve().parent.parent.parent / "backups"
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    dest_dir = backup_root / f"cs2_{account['AccountName']}_{timestamp}"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    files_to_copy = ["cs2_video.txt", "autoexec.cfg", "config.cfg"]
+    for f in files_to_copy:
+        src = cfg_dir / f
+        if src.exists():
+            shutil.copy2(src, dest_dir / f)
+
+    return dest_dir
 
 def sync_to_repo(cfg_dir: Path, account_name: str, commit_msg: str = "Backup Manual", launch_options: str = None, game_type: str = "cs2"):
     base_repo = core_git.get_private_repo_path()
@@ -29,7 +49,7 @@ def sync_to_repo(cfg_dir: Path, account_name: str, commit_msg: str = "Backup Man
     # Estrutura: repo/jogo/conta/...
     account_repo_dir = base_repo / game_type / account_name
     account_repo_dir.mkdir(parents=True, exist_ok=True)
-    
+
     if game_type == "cs2":
         # Arquivos específicos de CS2
         for file_name in ["cs2_video.txt", "autoexec.cfg", "config.cfg"]:
@@ -51,14 +71,13 @@ def auto_backup_if_changed(steam_path: Path, account: dict):
     base_repo = core_git.get_private_repo_path()
     acc_name = account["AccountName"]
     account_repo_dir = base_repo / "cs2" / acc_name
-    
+
     # CORREÇÃO: Garante que a pasta do Git existe antes de copiar
     if not account_repo_dir.exists():
         account_repo_dir.mkdir(parents=True, exist_ok=True)
-    
     account_id = str(int(account["SteamID"]) - 76561197960265728)
     cfg_dir = steam_path / "userdata" / account_id / "730" / "local" / "cfg"
-    
+
     # Verifica se os arquivos de origem existem
     changed = False
     for file_name in ["cs2_video.txt", "autoexec.cfg", "config.cfg"]:
@@ -66,9 +85,9 @@ def auto_backup_if_changed(steam_path: Path, account: dict):
         if src.exists():
             shutil.copy2(src, account_repo_dir / file_name)
             changed = True
-            
+
     if not changed: return False
-        
+
     try:
         # Usa o core_git para verificar status e commitar
         return core_git.commit_to_git(base_repo, f"CS2|{acc_name}", "Auto-Sync || Alterações In-Game detectadas")
@@ -212,7 +231,9 @@ def apply_launch_options(steam_path: Path, account_id3: str, new_options: str):
 
 def analyze_launch_options(current_options: str):
     analysis = []
-    for opt, data in CS2_LAUNCH_KNOWLEDGE.items():
+    # Garantia de que CS2_LAUNCH_KNOWLEDGE seja um dicionário
+    knowledge = CS2_LAUNCH_KNOWLEDGE if CS2_LAUNCH_KNOWLEDGE is not None else {}
+    for opt, data in knowledge.items():
         is_active = opt in current_options
 
         # Agora casando exatamente com o JSON padronizado

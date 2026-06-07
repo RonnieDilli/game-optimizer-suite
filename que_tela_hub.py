@@ -451,6 +451,10 @@ class QueTelaApp(ctk.CTk):
                 accounts = cs2_sync.parse_loginusers(steam_path)
                 acc = next((a for a in accounts if a['AccountName'] == self.bck_acc_combo.get()), None)
                 if acc:
+                    # CRIA PONTO DE RESTAURAÇÃO MANUAL
+                    dest_dir = cs2_sync.create_manual_restore_point(steam_path, acc)
+                    self.log_to_console(f"Ponto de restauração local criado em: {dest_dir.name}", "INFO")
+
                     acc_id = str(int(acc["SteamID"]) - 76561197960265728)
                     cfg_dir = steam_path / "userdata" / acc_id / "730" / "local" / "cfg"
                     # Novo: captura também as launch options
@@ -481,14 +485,15 @@ class QueTelaApp(ctk.CTk):
                 self.log_to_console(f"Rollback efetuado para o ID {commit_hash}.", "INFO")
                 load_history()
 
-                ctk.CTkButton(git_actions, text="1. Forçar Backup", command=force_backup).pack(side="left", padx=5)
+        # Botões fora da função para garantir visibilidade
+        ctk.CTkButton(git_actions, text="1. Forçar Backup", command=force_backup).pack(side="left", padx=5)
         ctk.CTkButton(git_actions, text="2. Restaurar Versão", fg_color="#C0392B", hover_color="#922B21", command=restore_selected).pack(side="left", padx=5)
+
         update_accounts()
 
     def show_launch_options(self):
         self.clear_view()
         if not cs2_sync: return
-
 
         steam_path = cs2_sync.get_steam_path()
         current_user = cs2_sync.get_current_autologin()
@@ -498,9 +503,6 @@ class QueTelaApp(ctk.CTk):
         if not acc:
             ctk.CTkLabel(self.view_frame, text="Nenhuma conta ativa detectada para CS2.", text_color="red").pack(pady=20)
             return
-
-
-
 
         acc_id3 = str(int(acc["SteamID"]) - 76561197960265728)
         current_opts = cs2_sync.get_launch_options(steam_path, acc_id3)
