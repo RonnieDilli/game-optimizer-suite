@@ -202,11 +202,10 @@ def apply_launch_options(steam_path: Path, account_id3: str, new_options: str):
 
 def analyze_launch_options(current_options: str):
     analysis = []
-    current_list = current_options.split()
-
     for opt, data in CS2_LAUNCH_KNOWLEDGE.items():
         is_active = opt in current_options
 
+        # Agora casando exatamente com o JSON padronizado
         analysis.append({
             "key": opt,
             "name": data["nome"],
@@ -218,4 +217,5 @@ def analyze_launch_options(current_options: str):
             "cat": data["categoria"]
         })
     return analysis
+
 

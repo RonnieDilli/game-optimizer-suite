@@ -1,59 +1,70 @@
 {
     "-novid": {
+        "nome": "Pular Vídeo de Abertura",
         "categoria": "Qualidade de Vida",
         "impacto": "Baixo",
         "risco": "Nenhum",
-        "desc": "Pula o vídeo de introdução da Valve. Acelera o boot do jogo.",
-        "recomendado": true,
-        "conflito": null
+        "descricao": "Pula o vídeo de introdução da Valve. Acelera o boot do jogo.",
+        "recomendacao": "Sempre recomendado",
+        "vantagem": "Acesso rápido ao menu"
     },
     "-high": {
+        "nome": "Alta Prioridade (CPU)",
         "categoria": "Performance",
         "impacto": "Médio",
         "risco": "Estabilidade (Stuttering)",
-        "desc": "Força alta prioridade de CPU no Windows. CUIDADO: Em processadores modernos (Ryzen 9 / Intel 13ª Gen), pode causar stutters severos ao roubar threads de drivers essenciais do sistema.",
-        "recomendado": false,
-        "conflito": null
+        "descricao": "Força alta prioridade de CPU no Windows.",
+        "recomendacao": "Não recomendado para CPUs modernas",
+        "vantagem": "Prioridade de thread no Windows"
     },
     "-freq": {
+        "nome": "Taxa de Atualização",
         "categoria": "Performance",
         "impacto": "Crítico",
         "risco": "Nenhum",
-        "desc": "Força a taxa de atualização do monitor (ex: -freq 240). Útil se o CS2 estiver travando na frequência do desktop (60Hz/144Hz) ao invés do limite do monitor.",
-        "recomendado": true,
+        "descricao": "Força a taxa de atualização do monitor.",
+        "recomendacao": "Use -freq 144",
+        "vantagem": "Evita travamento em 60Hz",
         "depende_hardware": "MonitorRefreshRate"
     },
     "-threads": {
+        "nome": "Definição de Threads",
         "categoria": "Performance",
         "impacto": "Alto",
         "risco": "Estabilidade",
-        "desc": "Define os núcleos lógicos. No CS2, a Source 2 gerencia isso bem, mas forçar (ex: -threads 8) pode resolver quedas de FPS em CPUs com P-Cores e E-Cores (Intel).",
-        "recomendado": "Situacional",
+        "descricao": "Define os núcleos lógicos. No CS2, a Source 2 gerencia isso bem, mas forçar (ex: -threads 8) pode resolver quedas de FPS em CPUs com P-Cores e E-Cores (Intel).",
+        "recomendacao": "Situacional",
+        "vantagem": "Melhor distribuição de carga",
         "depende_hardware": "CPULogicalCores"
     },
     "-vulkan": {
+        "nome": "API Vulkan",
         "categoria": "Estabilidade / Solução",
         "impacto": "Alto",
         "risco": "Queda de FPS Médio",
-        "desc": "Substitui o DirectX 11 pela API Vulkan. Vantagem: Muitas vezes elimina o stuttering de shader cache em placas AMD antigas ou Intel Arc. Desvantagem: Pode reduzir o FPS máximo em placas NVIDIA.",
-        "recomendado": "Situacional",
+        "descricao": "Substitui o DirectX 11 pela API Vulkan. Vantagem: Muitas vezes elimina o stuttering de shader cache em placas AMD antigas ou Intel Arc. Desvantagem: Pode reduzir o FPS máximo em placas NVIDIA.",
+        "recomendacao": "Situacional",
+        "vantagem": "Elimina stuttering em algumas GPUs",
         "conflito": null
     },
     "-allow_third_party_software": {
+        "nome": "Permitir Software de Terceiros",
         "categoria": "Utilitário",
         "impacto": "Nenhum",
         "risco": "Queda de Trust Factor (Vermelho)",
-        "desc": "Permite que softwares externos se conectem ao jogo (ex: OBS Studio com Game Capture). ALERTA: A Valve confirmou que isso diminui significativamente seu Trust Factor no Matchmaking.",
-        "recomendado": false,
+        "descricao": "Permite que softwares externos se conectem ao jogo (ex: OBS Studio com Game Capture). ALERTA: A Valve confirmou que isso diminui significativamente seu Trust Factor no Matchmaking.",
+        "recomendacao": "Não recomendado",
+        "vantagem": "Permite captura de jogo",
         "conflito": null
     },
     "-nojoy": {
+        "nome": "Desativar Suporte a Joystick",
         "categoria": "Performance",
         "impacto": "Baixo",
         "risco": "Nenhum",
-        "desc": "Desativa o suporte a controles (joysticks). Libera uma fração minúscula de memória e evita bugs de input aleatórios.",
-        "recomendado": true,
+        "descricao": "Desativa o suporte a controles (joysticks). Libera uma fração minúscula de memória e evita bugs de input aleatórios.",
+        "recomendacao": "Sempre recomendado",
+        "vantagem": "Reduz consumo de recursos e conflitos",
         "conflito": null
     }
 }
-

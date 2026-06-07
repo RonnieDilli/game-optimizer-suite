@@ -24,3 +24,12 @@ Feature: Sincronizacao de Contas e Configuracoes do CS2
     Then os arquivos sensiveis de configuracao ("cs2_video.txt", "autoexec.cfg", "config.cfg")
     And devem ser copiados da pasta userdata do usuario na Steam
     And colados com sucesso no caminho "docs/configs/cs2/[AccountName]/" do repositorio local
+    And o arquivo "launch_options.txt" contendo as opcoes de inicializacao atuais deve ser versionado no mesmo diretorio
+
+  Scenario: Gerenciamento Inteligente de Launch Options
+    Given que a Steam esta fechada
+    And que o hardware detectou o contexto atual do PC
+    When eu edito as launch options para incluir novos comandos
+    Then o sistema deve verificar se existem conflitos conhecidos no tesauro
+    And deve sugerir correções dinâmicas baseadas no hardware detectado
+    And ao salvar, o sistema deve versionar as novas launch options no Git em "docs/configs/cs2/[AccountName]/launch_options.txt"

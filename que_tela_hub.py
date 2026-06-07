@@ -558,7 +558,7 @@ class QueTelaApp(ctk.CTk):
             ctk.CTkLabel(header_frame, text=sugestao, font=ctk.CTkFont(weight="bold", size=14)).pack(side="left")
             ctk.CTkLabel(header_frame, text=f" Risco: {data['risco']} ", fg_color=badge_color, corner_radius=5, text_color="black").pack(side="right", padx=10)
 
-            ctk.CTkLabel(card, text=data['desc'], wraplength=700, justify="left", text_color="gray").pack(anchor="w", padx=10, pady=(0, 10))
+            ctk.CTkLabel(card, text=data['descricao'], wraplength=700, justify="left", text_color="gray").pack(anchor="w", padx=10, pady=(0, 10))
             ctk.CTkButton(card, text="Adicionar / Remover", width=120, command=lambda c=sugestao: toggle_command(c)).pack(anchor="e", padx=10, pady=(0, 10))
 
         def save_options():
