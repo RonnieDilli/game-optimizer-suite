@@ -230,13 +230,14 @@ def apply_launch_options(steam_path: Path, account_id3: str, new_options: str):
     return True
 
 def analyze_launch_options(current_options: str):
+    # Carregamento local e direto dentro da função para garantir isolamento
+    knowledge = load_json(LAUNCH_KNOWLEDGE_PATH)
+    if not knowledge:
+        knowledge = {}
+
     analysis = []
-    # Garantia de que CS2_LAUNCH_KNOWLEDGE seja um dicionário
-    knowledge = CS2_LAUNCH_KNOWLEDGE if CS2_LAUNCH_KNOWLEDGE is not None else {}
     for opt, data in knowledge.items():
         is_active = opt in current_options
-
-        # Agora casando exatamente com o JSON padronizado
         analysis.append({
             "key": opt,
             "name": data["nome"],
@@ -247,4 +248,5 @@ def analyze_launch_options(current_options: str):
             "recomenda": data["recomendacao"],
             "cat": data["categoria"]
         })
+    return analysis
 

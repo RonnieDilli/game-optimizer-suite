@@ -8,9 +8,13 @@ from pytest_bdd import scenario, given, when, then, parsers
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
 from scripts.games.cs2_sync import analyze_launch_options
+import scripts.games.cs2_sync as cs2_sync
 
 @scenario('../../docs/specs/cs2_sync.feature', 'Gerenciamento Inteligente de Launch Options')
 def test_launch_options_management():
+    # Garantia de carregamento no contexto do teste
+    if cs2_sync.CS2_LAUNCH_KNOWLEDGE is None:
+        cs2_sync.CS2_LAUNCH_KNOWLEDGE = {}
     pass
 
 @given('que a Steam esta fechada')
@@ -29,7 +33,12 @@ def edit_launch_options():
 @then('o sistema deve verificar se existem conflitos conhecidos no tesauro')
 def check_conflicts():
     analysis = analyze_launch_options(pytest.new_opts)
-    # Exemplo: -high pode ter risco de instabilidade
+
+    # Debug: Se falhar, printar o que está chegando
+    if analysis is None:
+        pytest.fail("analyze_launch_options retornou None!")
+
+    # A verificação original
     assert any(item['key'] == "-high" and "Estabilidade" in item['risco'] for item in analysis)
 
 @then('deve sugerir correções dinâmicas baseadas no hardware detectado')
