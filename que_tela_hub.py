@@ -441,7 +441,9 @@ class QueTelaApp(ctk.CTk):
                 if acc:
                     acc_id = str(int(acc["SteamID"]) - 76561197960265728)
                     cfg_dir = steam_path / "userdata" / acc_id / "730" / "local" / "cfg"
-                    cs2_sync.sync_to_repo(cfg_dir, acc['AccountName'], commit_msg="Backup Manual de Segurança")
+                    # Novo: captura também as launch options
+                    launch_opts = cs2_sync.get_launch_options(steam_path, acc_id)
+                    cs2_sync.sync_to_repo(cfg_dir, acc['AccountName'], commit_msg="Backup Manual de Segurança", launch_options=launch_opts)
             elif self.bck_game_var.get() == "RL" and rl_sync:
                 rl_sync.sync_to_repo(commit_msg="Backup Manual de Segurança (Rocket League)")
             load_history()
@@ -481,84 +483,157 @@ class QueTelaApp(ctk.CTk):
             ctk.CTkLabel(self.view_frame, text="Nenhuma conta ativa detectada para CS2.", text_color="red").pack(pady=20)
             return
 
-        ctk.CTkLabel(self.view_frame, text=f"Launch Options - {acc['PersonaName']}", font=ctk.CTkFont(size=20, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
-        
-        current_opts = cs2_sync.get_launch_options(steam_path, acc)
-        
-        # Área de Edição Direta
-        edit_frame = ctk.CTkFrame(self.view_frame)
-        edit_frame.pack(fill="x", padx=20, pady=10)
-        ctk.CTkLabel(edit_frame, text="Comandos Atuais (Steam):").pack(anchor="w", padx=10, pady=5)
-        
-        self.launch_entry = ctk.CTkEntry(edit_frame, width=600)
-        self.launch_entry.insert(0, current_opts)
-        self.launch_entry.pack(side="left", padx=10, pady=10, fill="x", expand=True)
-        
-        def save_launch():
-            if self.steam_running:
-                self.log_to_console("Feche a Steam para salvar Launch Options!", "WARNING")
-                return
-            new_val = self.launch_entry.get()
-            if cs2_sync.set_launch_options(steam_path, acc, new_val):
-                self.log_to_console(f"Launch Options atualizadas para {acc['PersonaName']}.", "INFO")
-                self.show_launch_options()
-            else:
-                self.log_to_console("Erro ao salvar Launch Options (localconfig.vdf não encontrado).", "ERROR")
 
-        ctk.CTkButton(edit_frame, text="Salvar", width=80, fg_color="#27AE60", command=save_launch).pack(side="right", padx=10)
 
-        # Tesauro e Recomendações
-        ctk.CTkLabel(self.view_frame, text="Sugestões e Análise de Impacto:", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=25, pady=(10, 5))
+
+        acc_id3 = str(int(acc["SteamID"]) - 76561197960265728)
+        current_opts = cs2_sync.get_launch_options(steam_path, acc_id3)
+        self.open_launch_options_modal(acc, current_opts)
         
-        analysis = cs2_sync.analyze_launch_options(current_opts)
-        scroll_analysis = ctk.CTkScrollableFrame(self.view_frame, height=350)
-        scroll_analysis.pack(fill="both", expand=True, padx=20, pady=5)
 
-        for item in analysis:
-            color = "#2ECC71" if item['active'] else "#95A5A6"
-            status_text = "[ATIVO]" if item['active'] else "[INATIVO]"
-            
-            card = ctk.CTkFrame(scroll_analysis, border_width=1, border_color="#333333")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    def open_launch_options_modal(self, account, current_options):
+        """Nova UI focada na gestão de riscos e Launch Options do CS2."""
+        modal = ctk.CTkToplevel(self)
+        modal.title(f"Launch Options Tuning: {account['PersonaName']}")
+        modal.geometry("850x650")
+        modal.transient(self)
+
+        # Analise de Hardware Context
+        hw_context = cs2_sync.get_hardware_context()
+
+        ctk.CTkLabel(modal, text="Comandos de Inicialização (Steam)", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(20, 5))
+        ctk.CTkLabel(modal, text=f"Contexto do PC: {hw_context['threads']} Threads Lógicas | Monitor: {hw_context['refresh_rate']}Hz", text_color="#3498DB").pack(pady=(0, 15))
+
+        # Input direto
+        entry_var = ctk.StringVar(value=current_options)
+        entry = ctk.CTkEntry(modal, textvariable=entry_var, width=700, font=ctk.CTkFont(family="Consolas", size=14))
+        entry.pack(pady=10)
+
+        # Scroll de Sugestões Baseado no Tesauro
+        scroll_frame = ctk.CTkScrollableFrame(modal)
+        scroll_frame.pack(fill="both", expand=True, padx=20, pady=10)
+
+        tesauro = cs2_sync.CS2_LAUNCH_KNOWLEDGE
+
+        def toggle_command(cmd_string):
+            """Adiciona ou remove o comando da barra de texto de forma inteligente."""
+            current = entry_var.get().split()
+            base_cmd = cmd_string.split()[0] # Pega só o -freq, tirando o 240
+            # Remove se existir
+            current = [c for c in current if not c.startswith(base_cmd)]
+            # Se a string original não estava no input, significa que o usuário quer ativar
+            if base_cmd not in entry_var.get():
+                current.append(cmd_string)
+            entry_var.set(" ".join(current))
+
+        for cmd, data in tesauro.items():
+            # Regra de recomendação baseada no Hardware
+            sugestao = cmd
+            if data.get("depende_hardware") == "MonitorRefreshRate":
+                sugestao = f"{cmd} {hw_context['refresh_rate']}"
+            elif data.get("depende_hardware") == "CPULogicalCores":
+                sugestao = f"{cmd} {hw_context['threads']}"
+
+            is_active = cmd in current_options
+
+            # Badges Visuais
+            if "Queda" in str(data['risco']): badge_color = "#E74C3C" # Vermelho
+            elif "Estabilidade" in str(data['risco']): badge_color = "#F39C12" # Laranja
+            else: badge_color = "#2ECC71" # Verde
+
+            card = ctk.CTkFrame(scroll_frame, fg_color="#2C3E50" if not is_active else "#34495E")
             card.pack(fill="x", pady=5, padx=5)
             
-            title_f = ctk.CTkFrame(card, fg_color="transparent")
-            title_f.pack(fill="x", padx=10, pady=5)
-            
-            ctk.CTkLabel(title_f, text=f"{status_text} {item['key']} - {item['name']}", font=ctk.CTkFont(weight="bold"), text_color=color).pack(side="left")
-            ctk.CTkLabel(title_f, text=item['cat'], font=ctk.CTkFont(size=10), fg_color="#34495E").pack(side="right")
-            
-            desc = f"Descrição: {item['desc']}\n"
-            desc += f"✅ Vantagem: {item['vantagem']}\n"
-            desc += f"⚠️ Risco: {item['risco']}\n"
-            desc += f"💡 Recomendação: {item['recomenda']}"
-            
-            ctk.CTkLabel(card, text=desc, justify="left", font=ctk.CTkFont(size=11), wraplength=700).pack(anchor="w", padx=10, pady=(0, 10))
-            
-            def make_toggle_cmd(opt, active):
-                return lambda: self.toggle_launch_opt(opt, active)
 
-            btn_text = "Remover" if item['active'] else "Adicionar"
-            btn_color = "#C0392B" if item['active'] else "#2980B9"
-            ctk.CTkButton(card, text=btn_text, width=80, height=24, fg_color=btn_color, command=make_toggle_cmd(item['key'], item['active'])).pack(anchor="e", padx=10, pady=5)
 
-    def toggle_launch_opt(self, opt, is_active):
-        current = self.launch_entry.get().strip()
-        opts = current.split()
-        
-        if is_active:
-            # Remove
-            if opt in opts: opts.remove(opt)
-            # Caso seja um comando com valor like +fps_max 0
-            elif " " in opt:
-                main_cmd = opt.split()[0]
-                opts = [o for o in opts if not o.startswith(main_cmd)]
-        else:
-            # Adiciona
-            if opt not in opts: opts.append(opt)
+            header_frame = ctk.CTkFrame(card, fg_color="transparent")
+            header_frame.pack(fill="x", padx=10, pady=5)
             
-        self.launch_entry.delete(0, "end")
-        self.launch_entry.insert(0, " ".join(opts))
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            ctk.CTkLabel(header_frame, text=sugestao, font=ctk.CTkFont(weight="bold", size=14)).pack(side="left")
+            ctk.CTkLabel(header_frame, text=f" Risco: {data['risco']} ", fg_color=badge_color, corner_radius=5, text_color="black").pack(side="right", padx=10)
+
+            ctk.CTkLabel(card, text=data['desc'], wraplength=700, justify="left", text_color="gray").pack(anchor="w", padx=10, pady=(0, 10))
+            ctk.CTkButton(card, text="Adicionar / Remover", width=120, command=lambda c=sugestao: toggle_command(c)).pack(anchor="e", padx=10, pady=(0, 10))
+
+        def save_options():
+            acc_id3 = str(int(account["SteamID"]) - 76561197960265728)
+            new_opts = entry_var.get()
+            if cs2_sync.apply_launch_options(cs2_sync.get_steam_path(), acc_id3, new_opts):
+                # Inclui a mudanca no historico Git
+                if core_git:
+                    core_git.commit_to_git(core_git.get_private_repo_path(), f"CS2|{account['AccountName']}|{account['PersonaName']}|{account['SteamID']}", f"Launch Options Alteradas: {new_opts}")
+                self.log_to_console(f"Launch Options salvas e versionadas: {new_opts}", "INFO")
+                modal.destroy()
+
+        ctk.CTkButton(modal, text="Salvar na Steam & Versionar no Git", fg_color="#8E44AD", hover_color="#732D91", command=save_options).pack(pady=20)
     def show_hardware(self):
 
         self.clear_view()

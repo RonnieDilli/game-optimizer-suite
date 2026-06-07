@@ -4,39 +4,37 @@ import subprocess
 import winreg
 import shutil
 import logging
-import configparser
+import json
+import wmi
+import customtkinter as ctk
 from pathlib import Path
 import core_git
-import json
 
 logger = logging.getLogger(__name__)
 
 KNOWLEDGE_PATH = Path(__file__).resolve().parent.parent.parent / "knowledge" / "cs2_video.json"
 LAUNCH_KNOWLEDGE_PATH = Path(__file__).resolve().parent.parent.parent / "knowledge" / "cs2_launch_options.json"
 
-try:
-    with open(KNOWLEDGE_PATH, "r", encoding="utf-8") as f:
-        CS2_KNOWLEDGE_BASE = json.load(f)
-except Exception as e:
-    CS2_KNOWLEDGE_BASE = {}
+def load_json(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f: return json.load(f)
+    except: return {}
 
-try:
-    with open(LAUNCH_KNOWLEDGE_PATH, "r", encoding="utf-8") as f:
-        CS2_LAUNCH_KNOWLEDGE = json.load(f)
-except Exception as e:
-    CS2_LAUNCH_KNOWLEDGE = {}
-
-
-def sync_to_repo(cfg_dir: Path, account_name: str, commit_msg: str = "Backup Manual"):
+CS2_KNOWLEDGE_BASE = load_json(KNOWLEDGE_PATH)
+CS2_LAUNCH_KNOWLEDGE = load_json(LAUNCH_KNOWLEDGE_PATH)
+def sync_to_repo(cfg_dir: Path, account_name: str, commit_msg: str = "Backup Manual", launch_options: str = None):
     base_repo = core_git.get_private_repo_path()
     account_repo_dir = base_repo / "cs2" / account_name
     account_repo_dir.mkdir(parents=True, exist_ok=True) # Garante a pasta
     
     for file_name in ["cs2_video.txt", "autoexec.cfg", "config.cfg"]:
         src = cfg_dir / file_name
-        dst = account_repo_dir / file_name
-        if src.exists(): shutil.copy2(src, dst)
-        
+        if src.exists(): shutil.copy2(src, account_repo_dir / file_name)
+
+    # Salva as Launch Options em um arquivo de texto para o Git rastrear
+    if launch_options is not None:
+        (account_repo_dir / "launch_options.txt").write_text(launch_options, encoding="utf-8")
+
     core_git.commit_to_git(base_repo, f"CS2|{account_name}", commit_msg)
 
 def auto_backup_if_changed(steam_path: Path, account: dict):
@@ -67,6 +65,18 @@ def auto_backup_if_changed(steam_path: Path, account: dict):
     except Exception as e:
         logger.error(f"Erro no auto-backup: {e}")
         return False
+
+def get_hardware_context():
+    """Lê a máquina para sugerir parâmetros dinâmicos."""
+    hw_context = {"threads": os.cpu_count(), "refresh_rate": 144} # Defaults
+    try:
+        # Usa WMI nativo do Windows para pegar taxa do monitor principal
+        c = wmi.WMI()
+        monitors = c.Win32_VideoController()
+        rates = [int(m.CurrentRefreshRate) for m in monitors if m.CurrentRefreshRate]
+        if rates: hw_context["refresh_rate"] = max(rates)
+    except: pass
+    return hw_context
 
 def get_steam_path():
     try:
@@ -152,54 +162,40 @@ def apply_selective_cs2_video(steam_path: Path, account: dict, selections: dict,
     video_cfg_path.write_text(content, encoding="utf-8")
     return cfg_dir
 
-def get_launch_options(steam_path: Path, account: dict):
-    account_id = str(int(account["SteamID"]) - 76561197960265728)
-    vdf_path = steam_path / "userdata" / account_id / "config" / "localconfig.vdf"
+def get_launch_options(steam_path: Path, account_id3: str):
+    """Lê o localconfig.vdf da Steam para extrair as Launch Options atuais."""
+    vdf_path = steam_path / "userdata" / account_id3 / "config" / "localconfig.vdf"
     if not vdf_path.exists(): return ""
-    
-    content = vdf_path.read_text(encoding="utf-8")
-    # Tenta encontrar a seção do CS2 (AppID 730) e extrair LaunchOptions
-    # A estrutura é hierárquica, mas um regex simples pode funcionar se formos específicos
-    # Procuramos por "730" e depois o primeiro "LaunchOptions" que vier
-    match_730 = re.search(r'"730"\s*\{[^}]*"LaunchOptions"\s*"([^"]*)"', content, re.DOTALL)
-    if match_730:
-        return match_730.group(1)
-    return ""
 
-def set_launch_options(steam_path: Path, account: dict, options_str: str):
-    account_id = str(int(account["SteamID"]) - 76561197960265728)
-    vdf_path = steam_path / "userdata" / account_id / "config" / "localconfig.vdf"
+    content = vdf_path.read_text(encoding="utf-8", errors="ignore")
+    # Busca o bloco do App 730 e sua LaunchOption
+    match = re.search(r'"730"\s*\{[^}]*"LaunchOptions"\s*"([^"]*)"', content, re.IGNORECASE | re.DOTALL)
+    return match.group(1) if match else ""
+
+def apply_launch_options(steam_path: Path, account_id3: str, new_options: str):
+    """Injeta as novas opções no localconfig.vdf com segurança."""
+    vdf_path = steam_path / "userdata" / account_id3 / "config" / "localconfig.vdf"
     if not vdf_path.exists(): return False
-    
-    content = vdf_path.read_text(encoding="utf-8")
-    
-    # Se já existe a chave LaunchOptions para o app 730
-    if re.search(r'"730"\s*\{[^}]*"LaunchOptions"', content, re.DOTALL):
-        # Substitui apenas dentro do bloco "730"
-        def replace_launch(m):
-            block = m.group(0)
-            if '"LaunchOptions"' in block:
-                return re.sub(r'("LaunchOptions"\s*)"([^"]*)"', rf'\1"{options_str}"', block)
-            return block
-        
-        new_content = re.sub(r'"730"\s*\{[^}]*\}', replace_launch, content, flags=re.DOTALL)
-    else:
-        # Se não existe, precisamos inserir. Isso é mais complexo sem um parser VDF real.
-        # Vamos tentar inserir logo após a abertura do bloco "730"
-        new_content = re.sub(r'("730"\s*\{)', rf'\1\n\t\t\t\t\t"LaunchOptions"\t\t"{options_str}"', content)
 
-    vdf_path.write_text(new_content, encoding="utf-8")
+    content = vdf_path.read_text(encoding="utf-8", errors="ignore")
+
+    # Se já existir a chave "LaunchOptions" dentro de "730"
+    if re.search(r'("730"\s*\{[^}]*"LaunchOptions"\s*")([^"]*)(")', content, re.IGNORECASE | re.DOTALL):
+        content = re.sub(r'("730"\s*\{[^}]*"LaunchOptions"\s*")([^"]*)(")', rf'\g<1>{new_options}\g<3>', content, flags=re.IGNORECASE | re.DOTALL)
+    # Se a chave "730" existe mas sem "LaunchOptions"
+    elif re.search(r'("730"\s*\{)', content, re.IGNORECASE):
+        content = re.sub(r'("730"\s*\{)', rf'\g<1>\n\t\t\t\t\t\t"LaunchOptions"\t\t"{new_options}"', content, flags=re.IGNORECASE)
+
+    vdf_path.write_text(content, encoding="utf-8")
     return True
 
 def analyze_launch_options(current_options: str):
     analysis = []
     current_list = current_options.split()
-    
+
     for opt, data in CS2_LAUNCH_KNOWLEDGE.items():
-        is_active = any(opt in current_list for current_list in [current_options.split()]) # Simplificado
-        # Melhor checagem de presença
         is_active = opt in current_options
-        
+
         analysis.append({
             "key": opt,
             "name": data["nome"],
@@ -211,3 +207,4 @@ def analyze_launch_options(current_options: str):
             "cat": data["categoria"]
         })
     return analysis
+
