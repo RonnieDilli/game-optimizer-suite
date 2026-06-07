@@ -6,10 +6,7 @@ import sys
 import os
 import time
 import logging
-import shutil
-from tkinter import filedialog
 from pathlib import Path
-
 # ==========================================
 # SETUP DE DIRETÓRIO E LOGS
 # ==========================================
@@ -44,7 +41,6 @@ class QueTelaApp(ctk.CTk):
         self.geometry("1050x750")
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
-
         self.steam_running = False
         self.cs2_running = False
         self.rl_running = False
@@ -62,18 +58,17 @@ class QueTelaApp(ctk.CTk):
         self.btn_steam_mgr = ctk.CTkButton(self.sidebar_frame, text="Steam & CS2", command=self.show_steam_manager)
         self.btn_steam_mgr.grid(row=1, column=0, padx=20, pady=10)
 
-        # btn_launch_opts removido daqui
         self.btn_epic = ctk.CTkButton(self.sidebar_frame, text="Epic & Rocket League", command=self.show_epic_rl)
-        self.btn_epic.grid(row=3, column=0, padx=20, pady=10)
+        self.btn_epic.grid(row=2, column=0, padx=20, pady=10)
 
         self.btn_backups = ctk.CTkButton(self.sidebar_frame, text="Central de Backups", fg_color="#8E44AD", hover_color="#732D91", command=self.show_backups)
-        self.btn_backups.grid(row=4, column=0, padx=20, pady=20)
+        self.btn_backups.grid(row=3, column=0, padx=20, pady=20)
 
         self.btn_hardware = ctk.CTkButton(self.sidebar_frame, text="Limpeza de Sistema", command=self.show_hardware)
-        self.btn_hardware.grid(row=5, column=0, padx=20, pady=10)
+        self.btn_hardware.grid(row=4, column=0, padx=20, pady=10)
 
         self.btn_steam = ctk.CTkButton(self.sidebar_frame, text="Steam Repair (VAC)", command=self.show_steam)
-        self.btn_steam.grid(row=6, column=0, padx=20, pady=10)
+        self.btn_steam.grid(row=5, column=0, padx=20, pady=10)
 
         monitor_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
         monitor_frame.grid(row=8, column=0, padx=20, pady=20, sticky="s")
@@ -504,40 +499,6 @@ class QueTelaApp(ctk.CTk):
         current_opts = cs2_sync.get_launch_options(steam_path, acc_id3)
         self.open_launch_options_modal(acc, current_opts)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     def open_launch_options_modal(self, account, current_options):
         """Nova UI focada na gestão de riscos e Launch Options do CS2."""
         modal = ctk.CTkToplevel(self)
@@ -591,45 +552,8 @@ class QueTelaApp(ctk.CTk):
             card = ctk.CTkFrame(scroll_frame, fg_color="#2C3E50" if not is_active else "#34495E")
             card.pack(fill="x", pady=5, padx=5)
 
-
-
             header_frame = ctk.CTkFrame(card, fg_color="transparent")
             header_frame.pack(fill="x", padx=10, pady=5)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
             ctk.CTkLabel(header_frame, text=sugestao, font=ctk.CTkFont(weight="bold", size=14)).pack(side="left")
             ctk.CTkLabel(header_frame, text=f" Risco: {data['risco']} ", fg_color=badge_color, corner_radius=5, text_color="black").pack(side="right", padx=10)
