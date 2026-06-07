@@ -19,17 +19,18 @@ Feature: Sincronizacao de Contas e Configuracoes do CS2
     And deve fixar o parametro "AutoConfig" em "0" para prevenir o reset forcado da Source 2
 
   Scenario: Sincronizacao de Arquivos Locais para Versionamento Git
-    Given que a otimizacao de desempenho foi concluida
-    When a rotina de sincronizacao for acionada pelo script Python
+    Given que a otimizacao de desempenho foi concluida ou alteracoes in-game detectadas
+    When a rotina de sincronizacao for acionada (automatica ou via Hub)
     Then os arquivos sensiveis de configuracao ("cs2_video.txt", "autoexec.cfg", "config.cfg")
     And devem ser copiados da pasta userdata do usuario na Steam
-    And colados com sucesso no caminho "docs/configs/cs2/[AccountName]/" do repositorio local
-    And o arquivo "launch_options.txt" contendo as opcoes de inicializacao atuais deve ser versionado no mesmo diretorio
+    And versionados em um repositorio Git local com um commit contendo o resumo das alteracoes
+    And o arquivo "launch_options.txt" atual deve ser versionado no mesmo diretorio da conta
 
   Scenario: Gerenciamento Inteligente de Launch Options
     Given que a Steam esta fechada
-    And que o hardware detectou o contexto atual do PC
-    When eu edito as launch options para incluir novos comandos
-    Then o sistema deve verificar se existem conflitos conhecidos no tesauro
-    And deve sugerir correções dinâmicas baseadas no hardware detectado
-    And ao salvar, o sistema deve versionar as novas launch options no Git em "docs/configs/cs2/[AccountName]/launch_options.txt"
+    And que o hardware (threads/Hz) foi detectado via WMI
+    When eu edito as launch options no Hub
+    Then o sistema deve cruzar o comando com o tesauro de riscos ("cs2_launch_options.json")
+    And deve salvar as novas options no arquivo "localconfig.vdf" da Steam
+    And deve realizar um commit automático no repositório Git
+
