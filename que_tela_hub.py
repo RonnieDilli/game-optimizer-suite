@@ -21,10 +21,13 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(m
     handlers=[logging.FileHandler(log_file, encoding='utf-8')])
 
 sys.path.append(str(BASE_DIR / "scripts" / "games"))
+
 try: import cs2_sync
 except ImportError: cs2_sync = None
+
 try: import rl_sync
 except ImportError: rl_sync = None
+
 try: import core_git
 except ImportError: core_git = None
 
@@ -452,9 +455,13 @@ class QueTelaApp(ctk.CTk):
                     cfg_dir = steam_path / "userdata" / acc_id / "730" / "local" / "cfg"
                     # Novo: captura também as launch options
                     launch_opts = cs2_sync.get_launch_options(steam_path, acc_id)
-                    cs2_sync.sync_to_repo(cfg_dir, acc['AccountName'], commit_msg="Backup Manual de Segurança", launch_options=launch_opts)
+                    cs2_sync.sync_to_repo(cfg_dir, acc['AccountName'], commit_msg="Backup Manual de Segurança", launch_options=launch_opts, game_type="cs2")
             elif self.bck_game_var.get() == "RL" and rl_sync:
-                rl_sync.sync_to_repo(commit_msg="Backup Manual de Segurança (Rocket League)")
+                # RL usa um único perfil "local"
+                cfg_path = rl_sync.get_rl_config_path()
+                cs2_sync.sync_to_repo(cfg_path, "local", commit_msg="Backup Manual de Segurança (Rocket League)", game_type="rl")
+
+            self.log_to_console("Backup manual realizado com sucesso.", "INFO")
             load_history()
 
         def restore_selected():

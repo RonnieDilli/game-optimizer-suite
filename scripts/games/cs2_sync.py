@@ -22,20 +22,30 @@ def load_json(path):
 
 CS2_KNOWLEDGE_BASE = load_json(KNOWLEDGE_PATH)
 CS2_LAUNCH_KNOWLEDGE = load_json(LAUNCH_KNOWLEDGE_PATH)
-def sync_to_repo(cfg_dir: Path, account_name: str, commit_msg: str = "Backup Manual", launch_options: str = None):
-    base_repo = core_git.get_private_repo_path()
-    account_repo_dir = base_repo / "cs2" / account_name
-    account_repo_dir.mkdir(parents=True, exist_ok=True) # Garante a pasta
-    
-    for file_name in ["cs2_video.txt", "autoexec.cfg", "config.cfg"]:
-        src = cfg_dir / file_name
-        if src.exists(): shutil.copy2(src, account_repo_dir / file_name)
 
-    # Salva as Launch Options em um arquivo de texto para o Git rastrear
+def sync_to_repo(cfg_dir: Path, account_name: str, commit_msg: str = "Backup Manual", launch_options: str = None, game_type: str = "cs2"):
+    base_repo = core_git.get_private_repo_path()
+
+    # Estrutura: repo/jogo/conta/...
+    account_repo_dir = base_repo / game_type / account_name
+    account_repo_dir.mkdir(parents=True, exist_ok=True)
+    
+    if game_type == "cs2":
+        # Arquivos específicos de CS2
+        for file_name in ["cs2_video.txt", "autoexec.cfg", "config.cfg"]:
+            src = cfg_dir / file_name
+            if src.exists(): shutil.copy2(src, account_repo_dir / file_name)
+
+        # Salva Launch Options separadamente
     if launch_options is not None:
         (account_repo_dir / "launch_options.txt").write_text(launch_options, encoding="utf-8")
 
-    core_git.commit_to_git(base_repo, f"CS2|{account_name}", commit_msg)
+    elif game_type == "rl":
+        # Arquivos específicos de Rocket League
+        if cfg_dir.exists():
+            shutil.copy2(cfg_dir, account_repo_dir / "TASystemSettings.ini")
+
+    core_git.commit_to_git(base_repo, f"{game_type.upper()}|{account_name}", commit_msg)
 
 def auto_backup_if_changed(steam_path: Path, account: dict):
     base_repo = core_git.get_private_repo_path()
@@ -216,6 +226,4 @@ def analyze_launch_options(current_options: str):
             "recomenda": data["recomendacao"],
             "cat": data["categoria"]
         })
-    return analysis
-
 
