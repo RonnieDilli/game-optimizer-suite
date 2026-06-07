@@ -1,0 +1,59 @@
+{
+    "-novid": {
+        "categoria": "Qualidade de Vida",
+        "impacto": "Baixo",
+        "risco": "Nenhum",
+        "desc": "Pula o vídeo de introdução da Valve. Acelera o boot do jogo.",
+        "recomendado": true,
+        "conflito": null
+    },
+    "-high": {
+        "categoria": "Performance",
+        "impacto": "Médio",
+        "risco": "Estabilidade (Stuttering)",
+        "desc": "Força alta prioridade de CPU no Windows. CUIDADO: Em processadores modernos (Ryzen 9 / Intel 13ª Gen), pode causar stutters severos ao roubar threads de drivers essenciais do sistema.",
+        "recomendado": false,
+        "conflito": null
+    },
+    "-freq": {
+        "categoria": "Performance",
+        "impacto": "Crítico",
+        "risco": "Nenhum",
+        "desc": "Força a taxa de atualização do monitor (ex: -freq 240). Útil se o CS2 estiver travando na frequência do desktop (60Hz/144Hz) ao invés do limite do monitor.",
+        "recomendado": true,
+        "depende_hardware": "MonitorRefreshRate"
+    },
+    "-threads": {
+        "categoria": "Performance",
+        "impacto": "Alto",
+        "risco": "Estabilidade",
+        "desc": "Define os núcleos lógicos. No CS2, a Source 2 gerencia isso bem, mas forçar (ex: -threads 8) pode resolver quedas de FPS em CPUs com P-Cores e E-Cores (Intel).",
+        "recomendado": "Situacional",
+        "depende_hardware": "CPULogicalCores"
+    },
+    "-vulkan": {
+        "categoria": "Estabilidade / Solução",
+        "impacto": "Alto",
+        "risco": "Queda de FPS Médio",
+        "desc": "Substitui o DirectX 11 pela API Vulkan. Vantagem: Muitas vezes elimina o stuttering de shader cache em placas AMD antigas ou Intel Arc. Desvantagem: Pode reduzir o FPS máximo em placas NVIDIA.",
+        "recomendado": "Situacional",
+        "conflito": null
+    },
+    "-allow_third_party_software": {
+        "categoria": "Utilitário",
+        "impacto": "Nenhum",
+        "risco": "Queda de Trust Factor (Vermelho)",
+        "desc": "Permite que softwares externos se conectem ao jogo (ex: OBS Studio com Game Capture). ALERTA: A Valve confirmou que isso diminui significativamente seu Trust Factor no Matchmaking.",
+        "recomendado": false,
+        "conflito": null
+    },
+    "-nojoy": {
+        "categoria": "Performance",
+        "impacto": "Baixo",
+        "risco": "Nenhum",
+        "desc": "Desativa o suporte a controles (joysticks). Libera uma fração minúscula de memória e evita bugs de input aleatórios.",
+        "recomendado": true,
+        "conflito": null
+    }
+}
+

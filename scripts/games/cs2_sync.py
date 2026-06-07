@@ -12,11 +12,20 @@ import json
 logger = logging.getLogger(__name__)
 
 KNOWLEDGE_PATH = Path(__file__).resolve().parent.parent.parent / "knowledge" / "cs2_video.json"
+LAUNCH_KNOWLEDGE_PATH = Path(__file__).resolve().parent.parent.parent / "knowledge" / "cs2_launch_options.json"
+
 try:
     with open(KNOWLEDGE_PATH, "r", encoding="utf-8") as f:
         CS2_KNOWLEDGE_BASE = json.load(f)
 except Exception as e:
     CS2_KNOWLEDGE_BASE = {}
+
+try:
+    with open(LAUNCH_KNOWLEDGE_PATH, "r", encoding="utf-8") as f:
+        CS2_LAUNCH_KNOWLEDGE = json.load(f)
+except Exception as e:
+    CS2_LAUNCH_KNOWLEDGE = {}
+
 
 def sync_to_repo(cfg_dir: Path, account_name: str, commit_msg: str = "Backup Manual"):
     base_repo = core_git.get_private_repo_path()
@@ -142,3 +151,63 @@ def apply_selective_cs2_video(steam_path: Path, account: dict, selections: dict,
         content = re.sub(r'("DeviceID"\s*)("\d+")', rf'\g<1>"{real_device}"', content)
     video_cfg_path.write_text(content, encoding="utf-8")
     return cfg_dir
+
+def get_launch_options(steam_path: Path, account: dict):
+    account_id = str(int(account["SteamID"]) - 76561197960265728)
+    vdf_path = steam_path / "userdata" / account_id / "config" / "localconfig.vdf"
+    if not vdf_path.exists(): return ""
+    
+    content = vdf_path.read_text(encoding="utf-8")
+    # Tenta encontrar a seção do CS2 (AppID 730) e extrair LaunchOptions
+    # A estrutura é hierárquica, mas um regex simples pode funcionar se formos específicos
+    # Procuramos por "730" e depois o primeiro "LaunchOptions" que vier
+    match_730 = re.search(r'"730"\s*\{[^}]*"LaunchOptions"\s*"([^"]*)"', content, re.DOTALL)
+    if match_730:
+        return match_730.group(1)
+    return ""
+
+def set_launch_options(steam_path: Path, account: dict, options_str: str):
+    account_id = str(int(account["SteamID"]) - 76561197960265728)
+    vdf_path = steam_path / "userdata" / account_id / "config" / "localconfig.vdf"
+    if not vdf_path.exists(): return False
+    
+    content = vdf_path.read_text(encoding="utf-8")
+    
+    # Se já existe a chave LaunchOptions para o app 730
+    if re.search(r'"730"\s*\{[^}]*"LaunchOptions"', content, re.DOTALL):
+        # Substitui apenas dentro do bloco "730"
+        def replace_launch(m):
+            block = m.group(0)
+            if '"LaunchOptions"' in block:
+                return re.sub(r'("LaunchOptions"\s*)"([^"]*)"', rf'\1"{options_str}"', block)
+            return block
+        
+        new_content = re.sub(r'"730"\s*\{[^}]*\}', replace_launch, content, flags=re.DOTALL)
+    else:
+        # Se não existe, precisamos inserir. Isso é mais complexo sem um parser VDF real.
+        # Vamos tentar inserir logo após a abertura do bloco "730"
+        new_content = re.sub(r'("730"\s*\{)', rf'\1\n\t\t\t\t\t"LaunchOptions"\t\t"{options_str}"', content)
+
+    vdf_path.write_text(new_content, encoding="utf-8")
+    return True
+
+def analyze_launch_options(current_options: str):
+    analysis = []
+    current_list = current_options.split()
+    
+    for opt, data in CS2_LAUNCH_KNOWLEDGE.items():
+        is_active = any(opt in current_list for current_list in [current_options.split()]) # Simplificado
+        # Melhor checagem de presença
+        is_active = opt in current_options
+        
+        analysis.append({
+            "key": opt,
+            "name": data["nome"],
+            "active": is_active,
+            "desc": data["descricao"],
+            "vantagem": data["vantagem"],
+            "risco": data["risco"],
+            "recomenda": data["recomendacao"],
+            "cat": data["categoria"]
+        })
+    return analysis

@@ -62,17 +62,21 @@ class QueTelaApp(ctk.CTk):
         self.btn_steam_mgr = ctk.CTkButton(self.sidebar_frame, text="Steam & CS2", command=self.show_steam_manager)
         self.btn_steam_mgr.grid(row=1, column=0, padx=20, pady=10)
 
+        self.btn_launch_opts = ctk.CTkButton(self.sidebar_frame, text="CS2 Launch Options", command=self.show_launch_options)
+        self.btn_launch_opts.grid(row=2, column=0, padx=20, pady=10)
+
         self.btn_epic = ctk.CTkButton(self.sidebar_frame, text="Epic & Rocket League", command=self.show_epic_rl)
-        self.btn_epic.grid(row=2, column=0, padx=20, pady=10)
+        self.btn_epic.grid(row=3, column=0, padx=20, pady=10)
 
         self.btn_backups = ctk.CTkButton(self.sidebar_frame, text="Central de Backups", fg_color="#8E44AD", hover_color="#732D91", command=self.show_backups)
-        self.btn_backups.grid(row=3, column=0, padx=20, pady=20)
+        self.btn_backups.grid(row=4, column=0, padx=20, pady=20)
 
         self.btn_hardware = ctk.CTkButton(self.sidebar_frame, text="Limpeza de Sistema", command=self.show_hardware)
-        self.btn_hardware.grid(row=4, column=0, padx=20, pady=10)
+        self.btn_hardware.grid(row=5, column=0, padx=20, pady=10)
 
         self.btn_steam = ctk.CTkButton(self.sidebar_frame, text="Steam Repair (VAC)", command=self.show_steam)
-        self.btn_steam.grid(row=5, column=0, padx=20, pady=10)
+        self.btn_steam.grid(row=6, column=0, padx=20, pady=10)
+
 
         monitor_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
         monitor_frame.grid(row=8, column=0, padx=20, pady=20, sticky="s")
@@ -459,11 +463,104 @@ class QueTelaApp(ctk.CTk):
                 self.log_to_console(f"Rollback efetuado para o ID {commit_hash}.", "INFO")
                 load_history()
 
-        ctk.CTkButton(git_actions, text="1. Forçar Backup", command=force_backup).pack(side="left", padx=5)
+                ctk.CTkButton(git_actions, text="1. Forçar Backup", command=force_backup).pack(side="left", padx=5)
         ctk.CTkButton(git_actions, text="2. Restaurar Versão", fg_color="#C0392B", hover_color="#922B21", command=restore_selected).pack(side="left", padx=5)
         update_accounts()
 
+    def show_launch_options(self):
+        self.clear_view()
+        if not cs2_sync: return
+
+
+        steam_path = cs2_sync.get_steam_path()
+        current_user = cs2_sync.get_current_autologin()
+        accounts = cs2_sync.parse_loginusers(steam_path) if steam_path else []
+        acc = next((a for a in accounts if a['AccountName'] == current_user), None)
+
+        if not acc:
+            ctk.CTkLabel(self.view_frame, text="Nenhuma conta ativa detectada para CS2.", text_color="red").pack(pady=20)
+            return
+
+        ctk.CTkLabel(self.view_frame, text=f"Launch Options - {acc['PersonaName']}", font=ctk.CTkFont(size=20, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
+        
+        current_opts = cs2_sync.get_launch_options(steam_path, acc)
+        
+        # Área de Edição Direta
+        edit_frame = ctk.CTkFrame(self.view_frame)
+        edit_frame.pack(fill="x", padx=20, pady=10)
+        ctk.CTkLabel(edit_frame, text="Comandos Atuais (Steam):").pack(anchor="w", padx=10, pady=5)
+        
+        self.launch_entry = ctk.CTkEntry(edit_frame, width=600)
+        self.launch_entry.insert(0, current_opts)
+        self.launch_entry.pack(side="left", padx=10, pady=10, fill="x", expand=True)
+        
+        def save_launch():
+            if self.steam_running:
+                self.log_to_console("Feche a Steam para salvar Launch Options!", "WARNING")
+                return
+            new_val = self.launch_entry.get()
+            if cs2_sync.set_launch_options(steam_path, acc, new_val):
+                self.log_to_console(f"Launch Options atualizadas para {acc['PersonaName']}.", "INFO")
+                self.show_launch_options()
+            else:
+                self.log_to_console("Erro ao salvar Launch Options (localconfig.vdf não encontrado).", "ERROR")
+
+        ctk.CTkButton(edit_frame, text="Salvar", width=80, fg_color="#27AE60", command=save_launch).pack(side="right", padx=10)
+
+        # Tesauro e Recomendações
+        ctk.CTkLabel(self.view_frame, text="Sugestões e Análise de Impacto:", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=25, pady=(10, 5))
+        
+        analysis = cs2_sync.analyze_launch_options(current_opts)
+        scroll_analysis = ctk.CTkScrollableFrame(self.view_frame, height=350)
+        scroll_analysis.pack(fill="both", expand=True, padx=20, pady=5)
+
+        for item in analysis:
+            color = "#2ECC71" if item['active'] else "#95A5A6"
+            status_text = "[ATIVO]" if item['active'] else "[INATIVO]"
+            
+            card = ctk.CTkFrame(scroll_analysis, border_width=1, border_color="#333333")
+            card.pack(fill="x", pady=5, padx=5)
+            
+            title_f = ctk.CTkFrame(card, fg_color="transparent")
+            title_f.pack(fill="x", padx=10, pady=5)
+            
+            ctk.CTkLabel(title_f, text=f"{status_text} {item['key']} - {item['name']}", font=ctk.CTkFont(weight="bold"), text_color=color).pack(side="left")
+            ctk.CTkLabel(title_f, text=item['cat'], font=ctk.CTkFont(size=10), fg_color="#34495E").pack(side="right")
+            
+            desc = f"Descrição: {item['desc']}\n"
+            desc += f"✅ Vantagem: {item['vantagem']}\n"
+            desc += f"⚠️ Risco: {item['risco']}\n"
+            desc += f"💡 Recomendação: {item['recomenda']}"
+            
+            ctk.CTkLabel(card, text=desc, justify="left", font=ctk.CTkFont(size=11), wraplength=700).pack(anchor="w", padx=10, pady=(0, 10))
+            
+            def make_toggle_cmd(opt, active):
+                return lambda: self.toggle_launch_opt(opt, active)
+
+            btn_text = "Remover" if item['active'] else "Adicionar"
+            btn_color = "#C0392B" if item['active'] else "#2980B9"
+            ctk.CTkButton(card, text=btn_text, width=80, height=24, fg_color=btn_color, command=make_toggle_cmd(item['key'], item['active'])).pack(anchor="e", padx=10, pady=5)
+
+    def toggle_launch_opt(self, opt, is_active):
+        current = self.launch_entry.get().strip()
+        opts = current.split()
+        
+        if is_active:
+            # Remove
+            if opt in opts: opts.remove(opt)
+            # Caso seja um comando com valor like +fps_max 0
+            elif " " in opt:
+                main_cmd = opt.split()[0]
+                opts = [o for o in opts if not o.startswith(main_cmd)]
+        else:
+            # Adiciona
+            if opt not in opts: opts.append(opt)
+            
+        self.launch_entry.delete(0, "end")
+        self.launch_entry.insert(0, " ".join(opts))
+
     def show_hardware(self):
+
         self.clear_view()
         ctk.CTkLabel(self.view_frame, text="Limpeza de Shaders e SO", font=ctk.CTkFont(size=20, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
         ctk.CTkButton(self.view_frame, text="Limpar GPU Agora", command=lambda: self.run_elevated_script("hardware/gpu_os_cleanup.bat", "gpu_cleanup.log", ["--auto"])).pack(anchor="e", padx=20, pady=20)
