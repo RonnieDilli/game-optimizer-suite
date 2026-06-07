@@ -1,1 +1,3 @@
 customtkinter
+WMI
+psutil

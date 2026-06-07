@@ -67,15 +67,26 @@ def auto_backup_if_changed(steam_path: Path, account: dict):
         return False
 
 def get_hardware_context():
-    """Lê a máquina para sugerir parâmetros dinâmicos."""
-    hw_context = {"threads": os.cpu_count(), "refresh_rate": 144} # Defaults
+    """Lê informações do hardware."""
+    import platform
+    import psutil
+    hw_context = {
+        "threads": os.cpu_count(),
+        "refresh_rate": 144,
+        "os": platform.system() + " " + platform.release(),
+        "ram": f"{round(psutil.virtual_memory().total / (1024**3))}GB"
+    }
     try:
-        # Usa WMI nativo do Windows para pegar taxa do monitor principal
         c = wmi.WMI()
         monitors = c.Win32_VideoController()
         rates = [int(m.CurrentRefreshRate) for m in monitors if m.CurrentRefreshRate]
         if rates: hw_context["refresh_rate"] = max(rates)
-    except: pass
+
+        gpu = c.Win32_VideoController()[0].Name
+        hw_context["gpu"] = gpu
+    except:
+        hw_context["gpu"] = "Desconhecido"
+
     return hw_context
 
 def get_steam_path():

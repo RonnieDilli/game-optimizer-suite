@@ -62,9 +62,7 @@ class QueTelaApp(ctk.CTk):
         self.btn_steam_mgr = ctk.CTkButton(self.sidebar_frame, text="Steam & CS2", command=self.show_steam_manager)
         self.btn_steam_mgr.grid(row=1, column=0, padx=20, pady=10)
 
-        self.btn_launch_opts = ctk.CTkButton(self.sidebar_frame, text="CS2 Launch Options", command=self.show_launch_options)
-        self.btn_launch_opts.grid(row=2, column=0, padx=20, pady=10)
-
+        # btn_launch_opts removido daqui
         self.btn_epic = ctk.CTkButton(self.sidebar_frame, text="Epic & Rocket League", command=self.show_epic_rl)
         self.btn_epic.grid(row=3, column=0, padx=20, pady=10)
 
@@ -76,7 +74,6 @@ class QueTelaApp(ctk.CTk):
 
         self.btn_steam = ctk.CTkButton(self.sidebar_frame, text="Steam Repair (VAC)", command=self.show_steam)
         self.btn_steam.grid(row=6, column=0, padx=20, pady=10)
-
 
         monitor_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
         monitor_frame.grid(row=8, column=0, padx=20, pady=20, sticky="s")
@@ -235,20 +232,38 @@ class QueTelaApp(ctk.CTk):
         ctk.CTkLabel(badge, text=f" Ativo: {current_user} ", font=ctk.CTkFont(size=12, weight="bold")).pack(padx=10, pady=2)
 
         if not cs2_sync:
-            ctk.CTkLabel(self.view_frame, text="Módulo cs2_sync não encontrado!", text_color="red").pack(pady=20)
             return
 
         steam_path = cs2_sync.get_steam_path()
         accounts = cs2_sync.parse_loginusers(steam_path) if steam_path else []
+        current_user = cs2_sync.get_current_autologin()
+        acc = next((a for a in accounts if a['AccountName'] == current_user), None)
+
+        # Seção Launch Options (Nova tela integrada)
+        if acc:
+            acc_id3 = str(int(acc["SteamID"]) - 76561197960265728)
+            launch_opts = cs2_sync.get_launch_options(steam_path, acc_id3)
+            hw = cs2_sync.get_hardware_context()
+
+            opts_frame = ctk.CTkFrame(self.view_frame, fg_color="#1E1E1E")
+            opts_frame.pack(fill="x", padx=20, pady=10)
+            ctk.CTkLabel(opts_frame, text=f"⚙️ Launch Options ({acc['PersonaName']})", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=10, pady=5)
+            ctk.CTkLabel(opts_frame, text=launch_opts if launch_opts else "(vazio)", font=ctk.CTkFont(family="Consolas", size=11)).pack(anchor="w", padx=10)
+
+            info_row = ctk.CTkFrame(opts_frame, fg_color="transparent")
+            info_row.pack(fill="x", padx=10, pady=5)
+            ctk.CTkLabel(info_row, text=f"🖥️ PC: {hw['threads']} Cores | {hw['refresh_rate']}Hz", font=ctk.CTkFont(size=10)).pack(side="left")
+
+            ctk.CTkButton(opts_frame, text="Editar Launch Options", height=28, command=lambda: self.open_launch_options_modal(acc, launch_opts)).pack(anchor="e", padx=10, pady=5)
 
         # Barra de Ações Rápidas (Steam Control)
         actions_bar = ctk.CTkFrame(self.view_frame, fg_color="#1A1A1A", height=50)
         actions_bar.pack(fill="x", padx=20, pady=10)
-        
+
         def kill_steam():
             subprocess.run(["taskkill", "/F", "/IM", "Steam.exe"], creationflags=subprocess.CREATE_NO_WINDOW)
             self.log_to_console("Comando para encerrar Steam enviado.", "INFO")
-        
+
         def start_steam():
             args = ["-tcp", "-clearbeta"] if self.chk_safe_mode.get() == 1 else []
             if steam_path:
@@ -258,14 +273,14 @@ class QueTelaApp(ctk.CTk):
         ctk.CTkButton(actions_bar, text="ENCERRAR STEAM", fg_color="#C0392B", hover_color="#E74C3C", width=140, font=ctk.CTkFont(weight="bold"), command=kill_steam).pack(side="left", padx=10, pady=10)
         self.btn_start_steam = ctk.CTkButton(actions_bar, text="ABRIR STEAM", fg_color="#27AE60", hover_color="#2ECC71", width=140, font=ctk.CTkFont(weight="bold"), command=start_steam)
         self.btn_start_steam.pack(side="left", padx=5, pady=10)
-        
+
         self.chk_safe_mode = ctk.CTkCheckBox(actions_bar, text="Modo Seguro (TCP)", font=ctk.CTkFont(size=11))
         self.chk_safe_mode.pack(side="left", padx=15)
 
         # Seção de Auditoria CS2 (Compacta)
         audit_frame = ctk.CTkFrame(self.view_frame, border_width=1, border_color="#333333")
         audit_frame.pack(fill="x", padx=20, pady=10)
-        
+
         def trigger_analysis():
             if self.cs2_running:
                 self.log_to_console("Feche o CS2 para modificar a Engine.", "WARNING")
@@ -286,7 +301,7 @@ class QueTelaApp(ctk.CTk):
 
         # Galeria de Contas
         ctk.CTkLabel(self.view_frame, text="Selecione um Perfil para Injetar:", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=25, pady=(10, 5))
-        
+
         scroll_acc = ctk.CTkScrollableFrame(self.view_frame, height=320, fg_color="transparent")
         scroll_acc.pack(fill="both", expand=True, padx=20, pady=5)
 
@@ -300,7 +315,7 @@ class QueTelaApp(ctk.CTk):
 
             info_f = ctk.CTkFrame(card, fg_color="transparent")
             info_f.pack(side="left", padx=15, pady=10, fill="x", expand=True)
-            
+
             ctk.CTkLabel(info_f, text=acc['PersonaName'], font=ctk.CTkFont(size=15, weight="bold"), anchor="w").pack(fill="x")
             ctk.CTkLabel(info_f, text=f"Login: {acc['AccountName']}", font=ctk.CTkFont(size=12), text_color="#BDC3C7", anchor="w").pack(fill="x")
 
@@ -309,8 +324,8 @@ class QueTelaApp(ctk.CTk):
 
             btn_color = ("#34495E", "#34495E") if is_active else ("#2980B9", "#3498DB")
             btn_text = "CONTA ATIVA" if is_active else "LOGAR NESTA"
-            
-            btn_sel = ctk.CTkButton(card, text=btn_text, width=100, height=35, 
+
+            btn_sel = ctk.CTkButton(card, text=btn_text, width=100, height=35,
                                    fg_color=btn_color[0], hover_color=btn_color[1],
                                    state="disabled" if is_active else "normal",
                                    command=make_inject_cmd(acc['AccountName']))
@@ -320,18 +335,18 @@ class QueTelaApp(ctk.CTk):
         if self.steam_running:
             self.log_to_console("Feche a Steam antes de trocar de conta!", "WARNING")
             return
-        
+
         acc = next((a for a in accounts if a['AccountName'] == username), None)
         if not acc: return
 
         # 1. Troca o Autologin no Registro
         if cs2_sync.set_autologin(username):
             self.log_to_console(f"Perfil {username} injetado com sucesso.", "INFO")
-            
+
             # 2. Verifica se houve mudanças na conta anterior (Backup Automático)
             if cs2_sync.auto_backup_if_changed(steam_path, acc):
                 self.log_to_console(f"Backup de segurança atualizado para {username}.", "INFO")
-            
+
             # Atualiza a UI
             self.show_steam_manager()
         else:
@@ -341,7 +356,7 @@ class QueTelaApp(ctk.CTk):
     def show_epic_rl(self):
         self.clear_view()
         ctk.CTkLabel(self.view_frame, text="Rocket League Optimizer", font=ctk.CTkFont(size=20, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
-        
+
         # Ativa o gatilho de Auto-Backup ao abrir a aba
         if rl_sync and rl_sync.auto_backup_if_changed():
             self.log_to_console("NOVA CONFIGURAÇÃO DETECTADA! Backup automático do Rocket League realizado.", "INFO")
@@ -355,7 +370,7 @@ class QueTelaApp(ctk.CTk):
         engine_frame = ctk.CTkFrame(self.view_frame)
         engine_frame.pack(fill="x", padx=20, pady=10)
         ctk.CTkLabel(engine_frame, text="2. Auditoria da Unreal Engine 3 (RL_VIDEO.JSON)", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=15, pady=10)
-        
+
         def trigger_rl_analysis():
             if not rl_sync: return
             if self.rl_running:
@@ -364,20 +379,19 @@ class QueTelaApp(ctk.CTk):
             data = rl_sync.analyze_rl_video()
             if data: self.open_analysis_modal(data, {"PersonaName": "Rocket League (Local)", "AccountName": "local"}, is_cs2=False)
         ctk.CTkButton(engine_frame, text="Analisar Motor Gráfico (Diff)", fg_color="#8E44AD", hover_color="#732D91", command=trigger_rl_analysis).pack(anchor="w", padx=15, pady=10)
-
     def show_backups(self):
         self.clear_view()
         ctk.CTkLabel(self.view_frame, text="Central de Backups (Git)", font=ctk.CTkFont(size=20, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
-        
+
         # Filtros Superiores
         filters_frame = ctk.CTkFrame(self.view_frame)
         filters_frame.pack(fill="x", padx=20, pady=10)
-        
+
         self.bck_game_var = ctk.StringVar(value="CS2")
         game_radios = ctk.CTkFrame(filters_frame, fg_color="transparent")
         game_radios.grid(row=0, column=0, padx=15, pady=15)
         ctk.CTkLabel(game_radios, text="Jogo:").pack(side="left", padx=5)
-        
+
         def update_accounts():
             if self.bck_game_var.get() == "CS2":
                 steam_path = cs2_sync.get_steam_path()
@@ -391,14 +405,14 @@ class QueTelaApp(ctk.CTk):
 
         ctk.CTkRadioButton(game_radios, text="CS2", variable=self.bck_game_var, value="CS2", command=update_accounts).pack(side="left", padx=10)
         ctk.CTkRadioButton(game_radios, text="Rocket League", variable=self.bck_game_var, value="RL", command=update_accounts).pack(side="left", padx=10)
-        
+
         self.bck_acc_combo = ctk.CTkComboBox(filters_frame, values=["Carregando..."], width=200, command=lambda _: load_history())
         self.bck_acc_combo.grid(row=0, column=1, padx=15, pady=15)
 
         # Histórico Git
         self.hist_details = ctk.CTkTextbox(self.view_frame, height=140, fg_color="#2C3E50", text_color="white", font=ctk.CTkFont(size=12))
         self.hist_details.pack(fill="x", padx=20, pady=(10, 15))
-        
+
         def on_commit_selected(choice):
             self.hist_details.configure(state="normal")
             self.hist_details.delete("0.0", "end")
@@ -452,7 +466,7 @@ class QueTelaApp(ctk.CTk):
             if "Nenhum" in self.combo_commits.get() or not core_git: return
             commit_hash = self.combo_commits.get().split(" | ")[0]
             tag = f"{self.bck_game_var.get()}|{self.bck_acc_combo.get()}"
-            
+
             if self.bck_game_var.get() == "CS2" and cs2_sync:
                 acc = next((a for a in cs2_sync.parse_loginusers(cs2_sync.get_steam_path()) if a['AccountName'] == self.bck_acc_combo.get()), None)
                 dest_dir = cs2_sync.get_steam_path() / "userdata" / str(int(acc["SteamID"]) - 76561197960265728) / "730" / "local" / "cfg"
@@ -460,7 +474,7 @@ class QueTelaApp(ctk.CTk):
             else:
                 dest_dir = rl_sync.get_rl_config_path().parent
                 subpath = "rl/local"
-                
+
             if core_git.restore_from_commit(commit_hash, subpath, dest_dir, tag):
                 self.log_to_console(f"Rollback efetuado para o ID {commit_hash}.", "INFO")
                 load_history()
@@ -489,7 +503,7 @@ class QueTelaApp(ctk.CTk):
         acc_id3 = str(int(acc["SteamID"]) - 76561197960265728)
         current_opts = cs2_sync.get_launch_options(steam_path, acc_id3)
         self.open_launch_options_modal(acc, current_opts)
-        
+
 
 
 
@@ -576,12 +590,12 @@ class QueTelaApp(ctk.CTk):
 
             card = ctk.CTkFrame(scroll_frame, fg_color="#2C3E50" if not is_active else "#34495E")
             card.pack(fill="x", pady=5, padx=5)
-            
+
 
 
             header_frame = ctk.CTkFrame(card, fg_color="transparent")
             header_frame.pack(fill="x", padx=10, pady=5)
-            
+
 
 
 
