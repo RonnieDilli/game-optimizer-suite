@@ -4,6 +4,7 @@
         "categoria": "Qualidade de Vida",
         "impacto": "Baixo",
         "risco": "Nenhum",
+        "tipo": "flag",
         "descricao": "Pula o vídeo de introdução da Valve. Acelera o boot do jogo.",
         "recomendacao": "Sempre recomendado",
         "vantagem": "Acesso rápido ao menu"
@@ -13,6 +14,7 @@
         "categoria": "Performance",
         "impacto": "Médio",
         "risco": "Estabilidade (Stuttering)",
+        "tipo": "flag",
         "descricao": "Força alta prioridade de CPU no Windows.",
         "recomendacao": "Não recomendado para CPUs modernas",
         "vantagem": "Prioridade de thread no Windows"
@@ -22,6 +24,7 @@
         "categoria": "Performance",
         "impacto": "Crítico",
         "risco": "Nenhum",
+        "tipo": "param",
         "descricao": "Força a taxa de atualização do monitor.",
         "recomendacao": "Use -freq 144",
         "vantagem": "Evita travamento em 60Hz",
@@ -32,6 +35,7 @@
         "categoria": "Performance",
         "impacto": "Alto",
         "risco": "Estabilidade",
+        "tipo": "param",
         "descricao": "Define os núcleos lógicos. No CS2, a Source 2 gerencia isso bem, mas forçar (ex: -threads 8) pode resolver quedas de FPS em CPUs com P-Cores e E-Cores (Intel).",
         "recomendacao": "Situacional",
         "vantagem": "Melhor distribuição de carga",
@@ -42,6 +46,7 @@
         "categoria": "Estabilidade / Solução",
         "impacto": "Alto",
         "risco": "Queda de FPS Médio",
+        "tipo": "flag",
         "descricao": "Substitui o DirectX 11 pela API Vulkan. Vantagem: Muitas vezes elimina o stuttering de shader cache em placas AMD antigas ou Intel Arc. Desvantagem: Pode reduzir o FPS máximo em placas NVIDIA.",
         "recomendacao": "Situacional",
         "vantagem": "Elimina stuttering em algumas GPUs",
@@ -52,6 +57,7 @@
         "categoria": "Utilitário",
         "impacto": "Nenhum",
         "risco": "Queda de Trust Factor (Vermelho)",
+        "tipo": "flag",
         "descricao": "Permite que softwares externos se conectem ao jogo (ex: OBS Studio com Game Capture). ALERTA: A Valve confirmou que isso diminui significativamente seu Trust Factor no Matchmaking.",
         "recomendacao": "Não recomendado",
         "vantagem": "Permite captura de jogo",
@@ -62,9 +68,11 @@
         "categoria": "Performance",
         "impacto": "Baixo",
         "risco": "Nenhum",
+        "tipo": "flag",
         "descricao": "Desativa o suporte a controles (joysticks). Libera uma fração minúscula de memória e evita bugs de input aleatórios.",
         "recomendacao": "Sempre recomendado",
         "vantagem": "Reduz consumo de recursos e conflitos",
         "conflito": null
     }
 }
+

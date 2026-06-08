@@ -25,11 +25,48 @@ def load_json(path):
 CS2_KNOWLEDGE_BASE = load_json(KNOWLEDGE_PATH)
 CS2_LAUNCH_KNOWLEDGE = load_json(LAUNCH_KNOWLEDGE_PATH)
 
+class LaunchOptionGenerator:
+    def __init__(self, catalog_path):
+        self.catalog = load_json(catalog_path)
+
+    def process_and_generate(self, current_options_string):
+        """
+        Analisa a string atual, separa conhecidos de desconhecidos
+        e prepara para o gerenciamento.
+        """
+        # Tokeniza: captura comandos (-/+) e seus valores até o próximo comando
+        tokens = re.findall(r'([-+]\w+)([^+-]*)', current_options_string)
+
+        results = {
+            "known": [],
+            "unknown": [],
+            "full_string": current_options_string
+        }
+
+        for cmd, val in tokens:
+            cmd = cmd.strip()
+            val = val.strip()
+
+            if cmd in self.catalog:
+                results["known"].append({"cmd": cmd, "val": val, "info": self.catalog[cmd]})
+            else:
+                results["unknown"].append({"cmd": cmd, "val": val})
+
+        return results
+
+    def save_options(self, options_list):
+        """
+        options_list: Lista de dicionários {'cmd': '-freq', 'val': '144'}
+        Remonta a string final para salvar na Steam.
+        """
+        parts = [f"{o['cmd']} {o['val']}".strip() for o in options_list]
+        return " ".join(parts).strip()
+
 def create_manual_restore_point(steam_path: Path, account: dict):
     import datetime
     account_id = str(int(account["SteamID"]) - 76561197960265728)
     cfg_dir = steam_path / "userdata" / account_id / "730" / "local" / "cfg"
-    
+
     # Define o caminho do backup
     backup_root = Path(__file__).resolve().parent.parent.parent / "backups"
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -230,23 +267,61 @@ def apply_launch_options(steam_path: Path, account_id3: str, new_options: str):
     return True
 
 def analyze_launch_options(current_options: str):
-    # Carregamento local e direto dentro da função para garantir isolamento
-    knowledge = load_json(LAUNCH_KNOWLEDGE_PATH)
-    if not knowledge:
-        knowledge = {}
+    """
+    Analisa as opções, identifica comandos conhecidos vs desconhecidos,
+    compatível com a estrutura esperada pelos testes e pela UI.
+    """
+    generator = LaunchOptionGenerator(LAUNCH_KNOWLEDGE_PATH)
+    results = generator.process_and_generate(current_options)
 
+    # Transformamos para um formato plano que os testes esperam (lista de dicts)
+    # mantendo a compatibilidade com a verificação de "risco" e "recomenda"
     analysis = []
-    for opt, data in knowledge.items():
-        is_active = opt in current_options
+
+    # Processa conhecidos
+    for item in results["known"]:
         analysis.append({
-            "key": opt,
-            "name": data["nome"],
-            "active": is_active,
-            "desc": data["descricao"],
-            "vantagem": data["vantagem"],
-            "risco": data["risco"],
-            "recomenda": data["recomendacao"],
-            "cat": data["categoria"]
+            "key": item["cmd"],
+            "name": item["info"].get("nome", "Desconhecido"),
+            "active": True,
+            "risco": item["info"].get("risco", "Nenhum"),
+            "recomenda": item["info"].get("recomendacao", ""),
+            "desc": item["info"].get("descricao", ""),
+            "cat": item["info"].get("categoria", "Outros")
         })
+
+    # Processa desconhecidos
+    for item in results["unknown"]:
+        analysis.append({
+            "key": item["cmd"],
+            "name": "Comando Avançado/Desconhecido",
+            "active": True,
+            "risco": "Desconhecido (Use com cautela)",
+            "recomenda": "Remover se não souber o que faz",
+            "desc": "Este comando não consta no catálogo. Manualmente inserido.",
+            "cat": "Avançado"
+        })
+
     return analysis
+
+def update_launch_options_string(current_options: str, target_opt: str, new_value: str = None, remove: bool = False):
+    """
+    Remove ou Adiciona/Atualiza um comando e seu valor com segurança.
+    """
+    if remove:
+        # Regex mais estrita para garantir a limpeza:
+        # Busca o comando, seguido de possível espaço e valor, garantindo o limite da string ou do próximo comando
+        pattern = fr'{target_opt}(\s+\S+)?\s*'
+        new_opts = re.sub(pattern, '', current_options)
+        return new_opts.strip()
+
+    # Adição ou atualização
+    part = f"{target_opt} {new_value}" if new_value else target_opt
+
+    if target_opt in current_options:
+        pattern = fr'{target_opt}(\s+\S+)?'
+        # Substitui, garantindo que não deixamos espaços extras
+        return re.sub(pattern, part, current_options).strip()
+    else:
+        return f"{current_options} {part}".strip()
 
