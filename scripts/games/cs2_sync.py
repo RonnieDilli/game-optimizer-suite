@@ -29,36 +29,29 @@ class LaunchOptionGenerator:
     def __init__(self, catalog_path):
         self.catalog = load_json(catalog_path)
 
-    def process_and_generate(self, current_options_string):
-        """
-        Analisa a string atual, separa conhecidos de desconhecidos
-        e prepara para o gerenciamento.
-        """
+    def process(self, current_options_string):
+        """Transforma string bruta em uma lista de dicionários para fácil manipulação."""
         # Tokeniza: captura comandos (-/+) e seus valores até o próximo comando
         tokens = re.findall(r'([-+]\w+)([^+-]*)', current_options_string)
 
-        results = {
-            "known": [],
-            "unknown": [],
-            "full_string": current_options_string
-        }
-
+        parsed_options = []
         for cmd, val in tokens:
             cmd = cmd.strip()
             val = val.strip()
 
-            if cmd in self.catalog:
-                results["known"].append({"cmd": cmd, "val": val, "info": self.catalog[cmd]})
-            else:
-                results["unknown"].append({"cmd": cmd, "val": val})
+            # Se for conhecido, enriquecemos com as infos do catálogo
+            info = self.catalog.get(cmd)
 
-        return results
+            parsed_options.append({
+                "cmd": cmd,
+                "val": val,
+                "is_known": bool(info),
+                "info": info or {}
+            })
+        return parsed_options
 
-    def save_options(self, options_list):
-        """
-        options_list: Lista de dicionários {'cmd': '-freq', 'val': '144'}
-        Remonta a string final para salvar na Steam.
-        """
+    def save(self, options_list):
+        """options_list: Lista de dicionários {'cmd': '-freq', 'val': '144'}"""
         parts = [f"{o['cmd']} {o['val']}".strip() for o in options_list]
         return " ".join(parts).strip()
 
@@ -268,60 +261,53 @@ def apply_launch_options(steam_path: Path, account_id3: str, new_options: str):
 
 def analyze_launch_options(current_options: str):
     """
-    Analisa as opções, identifica comandos conhecidos vs desconhecidos,
-    compatível com a estrutura esperada pelos testes e pela UI.
+    Função adaptadora para manter compatibilidade com testes e UI.
     """
     generator = LaunchOptionGenerator(LAUNCH_KNOWLEDGE_PATH)
-    results = generator.process_and_generate(current_options)
+    options = generator.process(current_options)
 
-    # Transformamos para um formato plano que os testes esperam (lista de dicts)
-    # mantendo a compatibilidade com a verificação de "risco" e "recomenda"
     analysis = []
-
-    # Processa conhecidos
-    for item in results["known"]:
-        analysis.append({
-            "key": item["cmd"],
-            "name": item["info"].get("nome", "Desconhecido"),
+    for opt in options:
+        if opt["is_known"]:
+            analysis.append({
+                "key": opt["cmd"],
+                "name": opt["info"].get("nome", "Desconhecido"),
             "active": True,
-            "risco": item["info"].get("risco", "Nenhum"),
-            "recomenda": item["info"].get("recomendacao", ""),
-            "desc": item["info"].get("descricao", ""),
-            "cat": item["info"].get("categoria", "Outros")
+                "risco": opt["info"].get("risco", "Nenhum"),
+                "recomenda": opt["info"].get("recomendacao", ""),
+                "desc": opt["info"].get("descricao", ""),
+                "cat": opt["info"].get("categoria", "Outros")
         })
-
-    # Processa desconhecidos
-    for item in results["unknown"]:
-        analysis.append({
-            "key": item["cmd"],
-            "name": "Comando Avançado/Desconhecido",
-            "active": True,
-            "risco": "Desconhecido (Use com cautela)",
-            "recomenda": "Remover se não souber o que faz",
-            "desc": "Este comando não consta no catálogo. Manualmente inserido.",
-            "cat": "Avançado"
-        })
-
+    else:
+            analysis.append({
+                "key": opt["cmd"],
+                "name": "Comando Avançado/Desconhecido",
+                "active": True,
+                "risco": "Desconhecido (Use com cautela)",
+                "recomenda": "Remover se não souber o que faz",
+                "desc": "Comando não catalogado. Inserido manualmente.",
+                "cat": "Avançado"
+            })
     return analysis
 
 def update_launch_options_string(current_options: str, target_opt: str, new_value: str = None, remove: bool = False):
     """
-    Remove ou Adiciona/Atualiza um comando e seu valor com segurança.
+    Agora utiliza o gerador para manter a consistência da estrutura.
     """
+    generator = LaunchOptionGenerator(LAUNCH_KNOWLEDGE_PATH)
+    options = generator.process(current_options)
+
     if remove:
-        # Regex mais estrita para garantir a limpeza:
-        # Busca o comando, seguido de possível espaço e valor, garantindo o limite da string ou do próximo comando
-        pattern = fr'{target_opt}(\s+\S+)?\s*'
-        new_opts = re.sub(pattern, '', current_options)
-        return new_opts.strip()
-
-    # Adição ou atualização
-    part = f"{target_opt} {new_value}" if new_value else target_opt
-
-    if target_opt in current_options:
-        pattern = fr'{target_opt}(\s+\S+)?'
-        # Substitui, garantindo que não deixamos espaços extras
-        return re.sub(pattern, part, current_options).strip()
+        options = [o for o in options if o["cmd"] != target_opt]
     else:
-        return f"{current_options} {part}".strip()
+        found = False
+        for o in options:
+            if o["cmd"] == target_opt:
+                o["val"] = new_value or ""
+                found = True
+                break
+        if not found:
+            options.append({"cmd": target_opt, "val": new_value or ""})
+
+    return generator.save(options)
 
