@@ -30,29 +30,53 @@ class LaunchOptionGenerator:
         self.catalog = load_json(catalog_path)
 
     def process(self, current_options_string):
-        """Transforma string bruta em uma lista de dicionários para fácil manipulação."""
-        # Tokeniza: captura comandos (-/+) e seus valores até o próximo comando
-        tokens = re.findall(r'([-+]\w+)([^+-]*)', current_options_string)
-
+        """Tokenização inteligente baseada no catálogo."""
+        # Divide tudo por espaços para analisar token a token
+        raw_tokens = current_options_string.split()
         parsed_options = []
-        for cmd, val in tokens:
-            cmd = cmd.strip()
-            val = val.strip()
 
-            # Se for conhecido, enriquecemos com as infos do catálogo
-            info = self.catalog.get(cmd)
+        i = 0
+        while i < len(raw_tokens):
+            token = raw_tokens[i]
 
-            parsed_options.append({
-                "cmd": cmd,
-                "val": val,
-                "is_known": bool(info),
-                "info": info or {}
+            # Verifica se é um comando (começa com - ou +)
+            if token.startswith(('-', '+')):
+                info = self.catalog.get(token)
+
+                # Se for um parâmetro, pega o próximo token como valor
+                val = ""
+                if info and info.get("tipo") == "param":
+                    # O valor só é pego se o próximo token NÃO for um comando
+                    if i + 1 < len(raw_tokens) and not raw_tokens[i+1].startswith(('-', '+')):
+                        val = raw_tokens[i+1]
+                        i += 1 # Pula o valor no loop
+
+                parsed_options.append({
+                        "cmd": token,
+                    "val": val,
+                    "is_known": bool(info),
+                    "info": info or {}
+                })
+            else:
+                # Caso o token seja um valor órfão (não deveria acontecer se bem parseado)
+                # Adiciona como um comando "desconhecido" apenas para não sumir
+                parsed_options.append({
+                    "cmd": token,
+                    "val": "",
+                    "is_known": False,
+                    "info": {}
             })
+            i += 1
         return parsed_options
 
     def save(self, options_list):
         """options_list: Lista de dicionários {'cmd': '-freq', 'val': '144'}"""
-        parts = [f"{o['cmd']} {o['val']}".strip() for o in options_list]
+        parts = []
+        for o in options_list:
+            if o['val']:
+                parts.append(f"{o['cmd']} {o['val']}")
+        else:
+                parts.append(f"{o['cmd']}")
         return " ".join(parts).strip()
 
 def create_manual_restore_point(steam_path: Path, account: dict):
@@ -298,16 +322,17 @@ def update_launch_options_string(current_options: str, target_opt: str, new_valu
     options = generator.process(current_options)
 
     if remove:
+        # Filtra mantendo apenas os comandos que não são o alvo
         options = [o for o in options if o["cmd"] != target_opt]
     else:
         found = False
         for o in options:
             if o["cmd"] == target_opt:
-                o["val"] = new_value or ""
+                o["val"] = new_value if new_value is not None else o["val"]
                 found = True
                 break
         if not found:
-            options.append({"cmd": target_opt, "val": new_value or ""})
+            options.append({"cmd": target_opt, "val": new_value if new_value is not None else ""})
 
     return generator.save(options)
 

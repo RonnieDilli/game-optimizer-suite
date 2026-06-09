@@ -28,7 +28,7 @@ def detect_hardware():
 @when('eu edito as launch options no Hub')
 def edit_launch_options():
     # Simulando a inclusão de comandos de teste
-    pytest.new_opts = "-high -freq 60"
+    pytest.new_opts = "-high -freq 60 -novid"
 
 @then('o sistema deve cruzar o comando com o tesauro de riscos ("cs2_launch_options.json")')
 def check_conflicts():
@@ -61,3 +61,26 @@ def check_save_to_localconfig():
 def check_git_commit():
     # Placeholder para a lógica de commit
     assert True
+
+# Novos testes para validar o gerenciamento de parâmetros
+def test_launch_options_management_logic():
+    from scripts.games.cs2_sync import update_launch_options_string
+
+    # Teste de remoção completa de parâmetro e seu valor
+    original = "-high -freq 240 -novid"
+    cleaned = update_launch_options_string(original, "-freq", remove=True)
+    # Debug print para entender o que está acontecendo
+    print(f"Original: {original}")
+    print(f"Cleaned: {cleaned}")
+
+    assert cleaned == "-high -novid"
+
+    # Teste de atualização de valor
+    updated = update_launch_options_string(original, "-freq", new_value="144")
+    assert "-freq 144" in updated
+    assert "-freq 240" not in updated
+
+    # Teste de adição de comando
+    added = update_launch_options_string(original, "-threads", new_value="8")
+    assert "-threads 8" in added
+
